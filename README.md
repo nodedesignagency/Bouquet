@@ -60,9 +60,17 @@ images — it returns numbers, and the renderer draws them.
 - **Ring spacing** comes from the RMS head width, which leans toward the big
   heads in the middle where the room is needed. For a single-flower bouquet RMS
   and mean agree exactly.
-- **Rise is not scaled by ring.** In a spiral hand-tie every stem is the same
-  length from the bind, so an outer flower sits lower because it leans out, not
-  because it is shorter. The 12% ring falloff governs size and nothing else.
+- **Every stem is cut to the same length.** `stemLengthMm` barely varies across
+  the catalog, because a florist cuts a hand-tie to length — only the spiral
+  decides which heads ride higher. Taking it from the artwork instead made it
+  vary by 66mm (the sprites are framed per flower, so a big bloom arrives with a
+  proportionally longer stem) and threw single flowers far above the rest.
+- **Rise is not scaled by ring** either. An outer flower sits lower because it
+  leans out, not because it is shorter; the 12% falloff governs size and nothing
+  else.
+- **The head mass is wider than it is tall.** The dome squash is well under 1 on
+  both axes, which is what a hand-tie looks like from the front. Nearer 1, the
+  spiral threw stems above the bouquet and buried others behind the collar.
 - **Fit pass**: three scalars, each solved in closed form from a first placement
   pass, rein the spiral in — one for the frame's width, one for its top, and one
   that keeps every stem's lean within 42°. Adding a thirtieth stem tightens the
@@ -117,6 +125,11 @@ the base pinches at the tie where the ribbon pulls it in, then flares below.
 
 `BouquetState` is the single source of truth and is fully serialisable. Mutations
 are pure functions returning a new state.
+
+Each stem also carries a `depth`, a manual override of where it sits in the
+stack. The engine's own order is sensible — outer rings behind, inner in front —
+but "that rose belongs in front of the lily" is a judgement it cannot make. Depth
+reorders painting only: nothing moves in the arrangement when you change it.
 
 Share links carry the whole bouquet rather than an id, with runs of identical
 stems collapsed:

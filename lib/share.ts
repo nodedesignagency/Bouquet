@@ -7,14 +7,17 @@
  * runs of identical stems collapse, which keeps a thirty-stem bouquet inside a
  * couple of hundred characters:
  *
- *   ?b=b1.8412.round.kraft-brown.satin-cream.1.lily-pink:0*3,rose-pink:1*5
+ *   ?b=b1.8412.round.kraft-brown.satin-cream.1.lily-white:0*3,rose-red:1*5
+ *
+ * A stem that has been pulled forward or pushed back carries a third field,
+ * `itemId:variant:depth`; the common case of depth 0 leaves it off entirely.
  *
  * Decoding is defensive: anything unrecognised falls back to a default rather
  * than throwing, so a link from an older build still opens.
  */
 
 import { getItem } from "./catalog";
-import { addStem, DEFAULT_STATE, MAX_STEMS, normalizeState } from "./state";
+import { addStem, DEFAULT_STATE, MAX_DEPTH, MAX_STEMS, normalizeState } from "./state";
 import type { BouquetState, WrapStyle } from "./types";
 import { getMaterial, getRibbon, getWrapStyle } from "./wrap";
 
@@ -28,7 +31,10 @@ const VARIANT = ":";
 export function encodeState(state: BouquetState): string {
   const runs: string[] = [];
   for (const stem of state.stems) {
-    const token = `${stem.itemId}${VARIANT}${stem.variant}`;
+    const token =
+      stem.depth === 0
+        ? `${stem.itemId}${VARIANT}${stem.variant}`
+        : `${stem.itemId}${VARIANT}${stem.variant}${VARIANT}${stem.depth}`;
     const last = runs[runs.length - 1];
     if (last?.startsWith(`${token}${COUNT}`)) {
       const count = Number(last.slice(token.length + 1));
@@ -73,7 +79,7 @@ export function decodeState(encoded: string): BouquetState | null {
   for (const run of rawStems.split(RUN)) {
     if (run === "") continue;
     const [token, rawCount] = run.split(COUNT);
-    const [itemId, rawVariant] = token.split(VARIANT);
+    const [itemId, rawVariant, rawDepth] = token.split(VARIANT);
     const item = getItem(itemId);
     if (!item) continue;
 
@@ -84,11 +90,16 @@ export function decodeState(encoded: string): BouquetState | null {
         ? variantIndex
         : 0;
 
+    const parsedDepth = Number.parseInt(rawDepth ?? "0", 10);
+    const depth = Number.isFinite(parsedDepth)
+      ? Math.max(-MAX_DEPTH, Math.min(MAX_DEPTH, parsedDepth))
+      : 0;
+
     for (let i = 0; i < count; i += 1) {
       const next = addStem(state, item.id);
       if (next === state) break; // Hit the stem limit.
       const stems = next.stems.slice();
-      stems[stems.length - 1] = { ...stems[stems.length - 1], variant };
+      stems[stems.length - 1] = { ...stems[stems.length - 1], variant, depth };
       state = { ...next, stems };
     }
   }

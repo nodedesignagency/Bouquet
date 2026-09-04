@@ -63,6 +63,7 @@ export function addStem(state: BouquetState, itemId: string): BouquetState {
     variant: pickVariant(state.seed, state.stems.length, item.variants.length),
     ring: 0,
     index: state.stems.length,
+    depth: 0,
   };
   return { ...state, stems: normalizeStems([...state.stems, stem]) };
 }
@@ -87,6 +88,26 @@ export function clearStems(state: BouquetState): BouquetState {
 
 export function countOfItem(state: BouquetState, itemId: string): number {
   return state.stems.reduce((n, stem) => n + (stem.itemId === itemId ? 1 : 0), 0);
+}
+
+/** How far a stem may be pulled forward or pushed back by hand. */
+export const MAX_DEPTH = 4;
+
+/**
+ * Move one stem through the stack, front to back.
+ *
+ * Only the paint order changes — the stem keeps its place in the spiral, so
+ * bringing a rose forward slides it over the lily next to it without anything
+ * moving sideways.
+ */
+export function nudgeDepth(state: BouquetState, stemIndex: number, by: number): BouquetState {
+  const stem = state.stems[stemIndex];
+  if (!stem) return state;
+  const depth = Math.max(-MAX_DEPTH, Math.min(MAX_DEPTH, stem.depth + by));
+  if (depth === stem.depth) return state;
+  const stems = state.stems.slice();
+  stems[stemIndex] = { ...stem, depth };
+  return { ...state, stems };
 }
 
 /** Cycle a single stem through its facings, without disturbing the arrangement. */

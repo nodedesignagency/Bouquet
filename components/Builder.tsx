@@ -8,6 +8,7 @@ import {
   addStem,
   clearStems,
   cycleVariant,
+  nudgeDepth,
   removeStemAt,
   removeStemOfItem,
   starterBouquet,
@@ -72,6 +73,7 @@ export function Builder() {
             state={state}
             onRemove={(i) => setState((prev) => removeStemAt(prev, i))}
             onCycleVariant={(i) => setState((prev) => cycleVariant(prev, i))}
+            onNudgeDepth={(i, by) => setState((prev) => nudgeDepth(prev, i, by))}
           />
         </div>
       </div>

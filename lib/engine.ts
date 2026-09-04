@@ -37,12 +37,16 @@ export const RING_SCALE_FALLOFF = 0.12;
 
 /**
  * The head plane is squashed vertically, and asymmetrically: offsets above the
- * middle of the mass are left nearly intact, offsets below are compressed hard.
+ * middle of the mass are compressed some, offsets below are compressed hard.
  * That is what a collar does to a real bouquet — the mass domes up and out but
  * is cut flat where the wrap holds it, instead of hanging down past the tie.
+ *
+ * Both are well under 1 so the head mass ends up wider than it is tall, the way
+ * a hand-tie looks from the front. Left near 1, the spiral threw single stems
+ * far above the rest and buried others behind the collar.
  */
-const DOME_SQUASH_UP = 0.94;
-const DOME_SQUASH_DOWN = 0.5;
+const DOME_SQUASH_UP = 0.72;
+const DOME_SQUASH_DOWN = 0.34;
 
 /**
  * Ring spacing is derived from the root-mean-square head width rather than the
@@ -424,10 +428,13 @@ function layerFor(item: CatalogItem, seed: number, n: number): LayerName {
 
 /**
  * Paint order within a layer: outer rings first, so they end up behind the
- * middle of the bouquet.
+ * middle of the bouquet — unless a stem has been pulled forward or pushed back
+ * by hand, which takes precedence over everything.
  */
 export function sortWithinLayer(stems: PlacedStem[]): PlacedStem[] {
-  return [...stems].sort((a, b) => b.ring - a.ring || a.n - b.n);
+  return [...stems].sort(
+    (a, b) => a.stem.depth - b.stem.depth || b.ring - a.ring || a.n - b.n,
+  );
 }
 
 export function groupByLayer(placed: PlacedStem[]): Map<LayerName, PlacedStem[]> {

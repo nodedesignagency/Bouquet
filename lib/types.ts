@@ -70,13 +70,17 @@ export interface CatalogItem {
    */
   bloomWidthMm: number;
   /**
-   * Real-world length of the stem that is visible above the tie point, in
-   * millimetres. Sets how far the head sits from the tie point.
+   * How far above the tie point this flower's head sits, in millimetres — the
+   * length the stem was cut to.
    *
-   * Measured from the artwork rather than guessed: it is the distance from the
-   * sprite's anchor up to the middle of its bloom, converted through
-   * `realWidthMm`. Keeping the two in agreement is what stops a gap of bare
-   * stem opening up between the wrap and the flowers.
+   * Near-constant across the catalog on purpose. A florist cuts a hand-tie to
+   * length, so every head sits at roughly the same height above the bind; only
+   * the spiral decides which ones ride higher. Taking this from the artwork
+   * instead made it vary by 66mm, because the sprites are framed per flower and
+   * a big bloom therefore arrives with a proportionally longer stem — which
+   * threw single flowers far above the rest. The renderer slides each sprite
+   * along its axis to meet this figure, so the artwork's own framing no longer
+   * decides anything.
    */
   stemLengthMm: number;
   /** Stem/foliage colour, used for the stem line and the bundle below the tie. */
@@ -105,6 +109,16 @@ export interface Stem {
   variant: number;
   ring: number;
   index: number;
+  /**
+   * Manual override of where this stem sits in the stack, front to back.
+   *
+   * The engine's own ordering is sensible — outer rings behind, inner in front
+   * — but "that rose belongs in front of the lily" is a judgement the engine
+   * cannot make. Higher is nearer the viewer; 0 leaves the stem where the
+   * engine put it. It only reorders painting, never position, so nothing moves
+   * when you change it.
+   */
+  depth: number;
 }
 
 export interface BouquetState {
