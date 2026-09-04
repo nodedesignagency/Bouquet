@@ -19,7 +19,7 @@ interface Props {
 export function Stage({ state, showGuides }: Props) {
   return (
     <div className="flex flex-col gap-2">
-      <div className="stage-paper overflow-hidden rounded-xl border border-bench-600">
+      <div className="overflow-hidden rounded-xl border border-bench-600">
         <BouquetCanvas state={state} showGuides={showGuides} className="h-auto w-full" />
       </div>
       <Ruler />

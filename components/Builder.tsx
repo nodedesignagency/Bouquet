@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { makeSeed } from "@/lib/rng";
+import { stateFromLocation } from "@/lib/share";
 import {
   addStem,
+  clearStems,
   cycleVariant,
   removeStemAt,
   removeStemOfItem,
@@ -12,6 +14,7 @@ import {
 } from "@/lib/state";
 import type { BouquetState } from "@/lib/types";
 import { CatalogPanel } from "./CatalogPanel";
+import { PricePanel } from "./PricePanel";
 import { SeedBar } from "./SeedBar";
 import { Stage } from "./Stage";
 import { WrapPanel } from "./WrapPanel";
@@ -20,6 +23,13 @@ import { StemList } from "./StemList";
 export function Builder() {
   const [state, setState] = useState<BouquetState>(starterBouquet);
   const [showGuides, setShowGuides] = useState(false);
+
+  // A shared link rebuilds the bouquet it describes. Read after mount, since
+  // the server has no address bar to read it from.
+  useEffect(() => {
+    const shared = stateFromLocation(window.location.search);
+    if (shared) setState(shared);
+  }, []);
 
   return (
     <main className="mx-auto w-full max-w-[1400px] px-4 py-6 lg:px-8 lg:py-10">
@@ -48,6 +58,7 @@ export function Builder() {
         </div>
 
         <div className="space-y-4">
+          <PricePanel state={state} onReset={() => setState((prev) => clearStems(prev))} />
           <CatalogPanel
             state={state}
             onAdd={(itemId) => setState((prev) => addStem(prev, itemId))}

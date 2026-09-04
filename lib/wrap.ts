@@ -250,6 +250,25 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
 }
 
+/**
+ * Trims long decimals out of a path.
+ *
+ * The wrap's curves run through sin, cos and friends, whose last bits are
+ * implementation-defined, so a raw path can differ between the server's render
+ * and the browser's. Two decimal places is finer than a pixel and identical
+ * everywhere.
+ */
+function tidy(shape: WrapShape): WrapShape {
+  return {
+    ...shape,
+    d: shape.d.replace(/-?\d+\.\d{3,}/g, (n) => String(Math.round(Number(n) * 100) / 100)),
+    strokeWidth:
+      shape.strokeWidth === undefined
+        ? undefined
+        : Math.round(shape.strokeWidth * 100) / 100,
+  };
+}
+
 export function buildWrap(
   state: BouquetState,
   layout: Layout,
@@ -339,11 +358,17 @@ export function buildWrap(
     ribbon.widthMm > 0 ? bow(tx, ty, Math.max(baseHalf, massHalf * 0.3), layout, ribbon, seed) : [];
 
   return {
-    gradients,
-    back,
-    front,
-    tape,
-    ribbon: ribbonShapes,
+    gradients: gradients.map((gradient) => ({
+      ...gradient,
+      x1: Math.round(gradient.x1 * 100) / 100,
+      y1: Math.round(gradient.y1 * 100) / 100,
+      x2: Math.round(gradient.x2 * 100) / 100,
+      y2: Math.round(gradient.y2 * 100) / 100,
+    })),
+    back: back.map(tidy),
+    front: front.map(tidy),
+    tape: tape.map(tidy),
+    ribbon: ribbonShapes.map(tidy),
     baseBottomY: style.id === "none" ? null : baseBottom,
   };
 }

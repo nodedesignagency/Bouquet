@@ -18,12 +18,6 @@ body {
 }
 
 @layer components {
-  /* The stage the bouquet is photographed against: warm seamless paper. */
-  .stage-paper {
-    background:
-      radial-gradient(120% 90% at 50% 8%, #2e2621 0%, #201b18 48%, #171310 100%);
-  }
-
   .rule-label {
     @apply font-mono text-[10px] uppercase tracking-label text-bench-400;
   }

@@ -1,4 +1,4 @@
-import { clusterFlorets, spriteWidthPx, type Layout, type PlacedStem } from "@/lib/engine";
+import { clusterFlorets, px, spriteWidthPx, type Layout, type PlacedStem } from "@/lib/engine";
 import { rand } from "@/lib/rng";
 
 /** Real stems are about 6mm across, and that is how they get sized here too. */
@@ -26,13 +26,13 @@ export function StemSprite({ placed, layout, seed }: Props) {
 
   // A stem is not a ruler: bow it slightly, away from the tie point.
   const bow = (rand(seed, placed.n, "bow") - 0.5) * axisLengthPx * 0.09;
-  const stemPath = `M 0 0 Q ${bow} ${-axisLengthPx * 0.55} 0 ${-axisLengthPx}`;
+  const stemPath = `M 0 0 Q ${px(bow)} ${px(-axisLengthPx * 0.55)} 0 ${px(-axisLengthPx)}`;
 
   return (
     <g
-      transform={`translate(${layout.tieX.toFixed(2)} ${layout.tieY.toFixed(
-        2,
-      )}) rotate(${placed.rotationDeg.toFixed(2)})`}
+      transform={`translate(${px(layout.tieX)} ${px(layout.tieY)}) rotate(${px(
+        placed.rotationDeg,
+      )})`}
       data-stem={item.id}
       data-ring={placed.ring}
       data-n={placed.n}
@@ -41,7 +41,7 @@ export function StemSprite({ placed, layout, seed }: Props) {
         d={stemPath}
         fill="none"
         stroke={item.stemColor}
-        strokeWidth={stemWidth}
+        strokeWidth={px(stemWidth)}
         strokeLinecap="round"
       />
       {florets.length > 0 ? (
@@ -57,19 +57,19 @@ export function StemSprite({ placed, layout, seed }: Props) {
 function Bloom({ placed, radius }: { placed: PlacedStem; radius: number }) {
   const { item, axisLengthPx } = placed;
   return (
-    <g transform={`translate(0 ${-axisLengthPx.toFixed(2)})`}>
+    <g transform={`translate(0 ${px(-axisLengthPx)})`}>
       <circle
-        r={radius}
+        r={px(radius)}
         fill={item.headColor}
         stroke={item.accentColor}
-        strokeWidth={radius * 0.06}
+        strokeWidth={px(radius * 0.06)}
       />
-      <circle r={radius * 0.44} fill={item.accentColor} opacity={0.85} />
+      <circle r={px(radius * 0.44)} fill={item.accentColor} opacity={0.85} />
       <circle
-        r={radius * 0.72}
+        r={px(radius * 0.72)}
         fill="none"
         stroke={item.accentColor}
-        strokeWidth={radius * 0.05}
+        strokeWidth={px(radius * 0.05)}
         opacity={0.5}
       />
     </g>
@@ -96,13 +96,12 @@ function Sprig({
       {florets.map((floret, i) => (
         <path
           key={`b${i}`}
-          d={`M 0 ${branchOriginY.toFixed(2)} Q ${(floret.x * 0.4).toFixed(2)} ${(
-            branchOriginY +
-            (-axisLengthPx - branchOriginY + floret.y) * 0.6
-          ).toFixed(2)} ${floret.x.toFixed(2)} ${(-axisLengthPx + floret.y).toFixed(2)}`}
+          d={`M 0 ${px(branchOriginY)} Q ${px(floret.x * 0.4)} ${px(
+            branchOriginY + (-axisLengthPx - branchOriginY + floret.y) * 0.6,
+          )} ${px(floret.x)} ${px(-axisLengthPx + floret.y)}`}
           fill="none"
           stroke={item.stemColor}
-          strokeWidth={stemWidth * 0.45}
+          strokeWidth={px(stemWidth * 0.45)}
           strokeLinecap="round"
           opacity={0.9}
         />
@@ -110,12 +109,12 @@ function Sprig({
       {florets.map((floret, i) => (
         <circle
           key={`f${i}`}
-          cx={floret.x.toFixed(2)}
-          cy={(-axisLengthPx + floret.y).toFixed(2)}
-          r={floret.r.toFixed(2)}
+          cx={px(floret.x)}
+          cy={px(-axisLengthPx + floret.y)}
+          r={px(floret.r)}
           fill={item.headColor}
           stroke={item.accentColor}
-          strokeWidth={floret.r * 0.14}
+          strokeWidth={px(floret.r * 0.14)}
         />
       ))}
     </g>

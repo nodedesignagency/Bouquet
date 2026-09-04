@@ -7,6 +7,7 @@ import {
   computeLayout,
   groupByLayer,
   placeStems,
+  px,
   spriteWidthPx,
   type Layout,
   type PlacedStem,
@@ -62,6 +63,13 @@ export function BouquetCanvas({ state, className, showGuides = false }: Props) {
       aria-label={`Bouquet of ${state.stems.length} stems`}
     >
       <defs>
+        {/* The stage lives inside the SVG, so an export looks like the screen. */}
+        <radialGradient id="stage-ground" cx="50%" cy="8%" r="78%">
+          <stop offset="0%" stopColor="#2e2621" />
+          <stop offset="48%" stopColor="#201b18" />
+          <stop offset="100%" stopColor="#171310" />
+        </radialGradient>
+
         {/*
           Back layers get brightness 0.94 and a 1px blur. Both are expressed in
           canvas units, so they hold at any display size and in the export.
@@ -96,6 +104,13 @@ export function BouquetCanvas({ state, className, showGuides = false }: Props) {
           </linearGradient>
         ))}
       </defs>
+
+      <rect
+        data-part="stage"
+        width={CANVAS_WIDTH}
+        height={CANVAS_HEIGHT}
+        fill="url(#stage-ground)"
+      />
 
       {LAYER_ORDER.map((layer) => (
         <g
@@ -213,13 +228,11 @@ export function StemBundle({
             x1={0}
             y1={0}
             x2={0}
-            y2={length}
+            y2={px(length)}
             stroke={stem.item.stemColor}
-            strokeWidth={width}
+            strokeWidth={px(width)}
             strokeLinecap="round"
-            transform={`translate(${layout.tieX.toFixed(2)} ${layout.tieY.toFixed(
-              2,
-            )}) rotate(${lean.toFixed(2)})`}
+            transform={`translate(${px(layout.tieX)} ${px(layout.tieY)}) rotate(${px(lean)})`}
           />
         );
       })}
@@ -243,7 +256,7 @@ function Guides({ placed, layout }: { placed: PlacedStem[]; layout: Layout }) {
   }
 
   const spiral = placed
-    .map((s, i) => `${i === 0 ? "M" : "L"} ${s.headX.toFixed(1)} ${s.headY.toFixed(1)}`)
+    .map((s, i) => `${i === 0 ? "M" : "L"} ${px(s.headX)} ${px(s.headY)}`)
     .join(" ");
 
   return (
@@ -253,7 +266,7 @@ function Guides({ placed, layout }: { placed: PlacedStem[]; layout: Layout }) {
           key={ring}
           cx={layout.tieX}
           cy={layout.tieY}
-          r={radius}
+          r={px(radius)}
           fill="none"
           stroke="#93a983"
           strokeWidth={1}
@@ -265,7 +278,7 @@ function Guides({ placed, layout }: { placed: PlacedStem[]; layout: Layout }) {
         <path d={spiral} fill="none" stroke="#d7a05a" strokeWidth={1.5} opacity={0.55} />
       ) : null}
       {placed.map((s) => (
-        <circle key={s.key} cx={s.headX} cy={s.headY} r={3} fill="#d7a05a" opacity={0.8} />
+        <circle key={s.key} cx={px(s.headX)} cy={px(s.headY)} r={3} fill="#d7a05a" opacity={0.8} />
       ))}
       <g stroke="#d7a05a" strokeWidth={1.5}>
         <line x1={layout.tieX - 14} y1={layout.tieY} x2={layout.tieX + 14} y2={layout.tieY} />

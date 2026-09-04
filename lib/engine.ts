@@ -121,9 +121,31 @@ export function ringForIndex(n: number): number {
   return Math.floor(Math.sqrt(Math.max(0, n)));
 }
 
-/** Scale multiplier for a ring: 12% smaller for each ring outward. */
+/**
+ * Scale multiplier for a ring: 12% smaller for each ring outward.
+ *
+ * Multiplied out rather than raised with `Math.pow`, whose result for
+ * non-integer cases is implementation-defined — Node and the browser can
+ * disagree in the last bit, which is enough to make the server and client
+ * render different numbers and trip a hydration mismatch. IEEE multiplication
+ * is exactly specified, so a loop gives the same answer everywhere.
+ */
 export function scaleForRing(ring: number): number {
-  return Math.pow(1 - RING_SCALE_FALLOFF, ring);
+  let scale = 1;
+  for (let i = 0; i < ring; i += 1) scale *= 1 - RING_SCALE_FALLOFF;
+  return scale;
+}
+
+/**
+ * Rounds a coordinate before it reaches the DOM.
+ *
+ * The transcendental functions the placement maths leans on (sin, cos, atan2,
+ * hypot) are also implementation-defined in their last bits, so raw results
+ * are trimmed on the way out. Two decimal places is far finer than a pixel and
+ * makes server and client agree exactly.
+ */
+export function px(value: number): number {
+  return Math.round(value * 100) / 100;
 }
 
 /**
