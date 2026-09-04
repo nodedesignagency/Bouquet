@@ -1,0 +1,509 @@
+[
+  {
+    "id": "rose-red",
+    "name": "Red Rose",
+    "category": "focal",
+    "colorway": "red",
+    "pricePerStem": 45,
+    "realWidthMm": 75,
+    "bloomWidthMm": 75,
+    "stemLengthMm": 130,
+    "stemColor": "#3f6b3a",
+    "headColor": "#b81f33",
+    "accentColor": "#7e0f21",
+    "variants": [
+      {
+        "src": "/assets/rose-red-front.png",
+        "anchor": [
+          512,
+          980
+        ],
+        "facing": "front"
+      },
+      {
+        "src": "/assets/rose-red-three-quarter.png",
+        "anchor": [
+          498,
+          1002
+        ],
+        "facing": "3q"
+      },
+      {
+        "src": "/assets/rose-red-side.png",
+        "anchor": [
+          470,
+          990
+        ],
+        "facing": "side"
+      }
+    ]
+  },
+  {
+    "id": "rose-pink",
+    "name": "Pink Rose",
+    "category": "focal",
+    "colorway": "pink",
+    "pricePerStem": 42,
+    "realWidthMm": 75,
+    "bloomWidthMm": 75,
+    "stemLengthMm": 128,
+    "stemColor": "#43703c",
+    "headColor": "#e78aa6",
+    "accentColor": "#c8617f",
+    "variants": [
+      {
+        "src": "/assets/rose-pink-front.png",
+        "anchor": [
+          512,
+          980
+        ],
+        "facing": "front"
+      },
+      {
+        "src": "/assets/rose-pink-three-quarter.png",
+        "anchor": [
+          512,
+          980
+        ],
+        "facing": "3q"
+      },
+      {
+        "src": "/assets/rose-pink-side.png",
+        "anchor": [
+          512,
+          980
+        ],
+        "facing": "side"
+      }
+    ]
+  },
+  {
+    "id": "rose-cream",
+    "name": "Cream Rose",
+    "category": "focal",
+    "colorway": "cream",
+    "pricePerStem": 40,
+    "realWidthMm": 72,
+    "bloomWidthMm": 72,
+    "stemLengthMm": 128,
+    "stemColor": "#43703c",
+    "headColor": "#f4e7d2",
+    "accentColor": "#dcc79f",
+    "variants": [
+      {
+        "src": "/assets/rose-cream-front.png",
+        "anchor": [
+          512,
+          980
+        ],
+        "facing": "front"
+      },
+      {
+        "src": "/assets/rose-cream-three-quarter.png",
+        "anchor": [
+          512,
+          980
+        ],
+        "facing": "3q"
+      },
+      {
+        "src": "/assets/rose-cream-side.png",
+        "anchor": [
+          512,
+          980
+        ],
+        "facing": "side"
+      }
+    ]
+  },
+  {
+    "id": "sunflower",
+    "name": "Sunflower",
+    "category": "focal",
+    "colorway": "yellow",
+    "pricePerStem": 65,
+    "realWidthMm": 180,
+    "bloomWidthMm": 180,
+    "stemLengthMm": 165,
+    "stemColor": "#4b7a35",
+    "headColor": "#f5b91f",
+    "accentColor": "#4a2a12",
+    "variants": [
+      {
+        "src": "/assets/sunflower-front.png",
+        "anchor": [
+          512,
+          980
+        ],
+        "facing": "front"
+      },
+      {
+        "src": "/assets/sunflower-three-quarter.png",
+        "anchor": [
+          512,
+          980
+        ],
+        "facing": "3q"
+      },
+      {
+        "src": "/assets/sunflower-side.png",
+        "anchor": [
+          512,
+          980
+        ],
+        "facing": "side"
+      }
+    ]
+  },
+  {
+    "id": "lily-pink",
+    "name": "Stargazer Lily",
+    "category": "focal",
+    "colorway": "pink",
+    "pricePerStem": 90,
+    "realWidthMm": 150,
+    "bloomWidthMm": 150,
+    "stemLengthMm": 150,
+    "stemColor": "#3d6b39",
+    "headColor": "#f2b9c8",
+    "accentColor": "#d2506f",
+    "variants": [
+      {
+        "src": "/assets/lily-pink-front.png",
+        "anchor": [
+          512,
+          980
+        ],
+        "facing": "front"
+      },
+      {
+        "src": "/assets/lily-pink-three-quarter.png",
+        "anchor": [
+          512,
+          980
+        ],
+        "facing": "3q"
+      },
+      {
+        "src": "/assets/lily-pink-side.png",
+        "anchor": [
+          512,
+          980
+        ],
+        "facing": "side"
+      }
+    ]
+  },
+  {
+    "id": "peony-blush",
+    "name": "Blush Peony",
+    "category": "focal",
+    "colorway": "blush",
+    "pricePerStem": 180,
+    "realWidthMm": 150,
+    "bloomWidthMm": 150,
+    "stemLengthMm": 132,
+    "stemColor": "#456f3b",
+    "headColor": "#f0c2cb",
+    "accentColor": "#d38fa2",
+    "variants": [
+      {
+        "src": "/assets/peony-blush-front.png",
+        "anchor": [
+          512,
+          980
+        ],
+        "facing": "front"
+      },
+      {
+        "src": "/assets/peony-blush-three-quarter.png",
+        "anchor": [
+          512,
+          980
+        ],
+        "facing": "3q"
+      },
+      {
+        "src": "/assets/peony-blush-side.png",
+        "anchor": [
+          512,
+          980
+        ],
+        "facing": "side"
+      }
+    ]
+  },
+  {
+    "id": "orchid-blue",
+    "name": "Blue Dendrobium Orchid",
+    "category": "focal",
+    "colorway": "blue-violet",
+    "pricePerStem": 120,
+    "realWidthMm": 170,
+    "bloomWidthMm": 80,
+    "stemLengthMm": 175,
+    "stemColor": "#4a7444",
+    "headColor": "#5b3fa8",
+    "accentColor": "#2f7fc4",
+    "variants": [
+      {
+        "src": "/assets/orchid-blue-front.png",
+        "anchor": [
+          512,
+          980
+        ],
+        "facing": "front"
+      },
+      {
+        "src": "/assets/orchid-blue-three-quarter.png",
+        "anchor": [
+          512,
+          980
+        ],
+        "facing": "3q"
+      },
+      {
+        "src": "/assets/orchid-blue-side.png",
+        "anchor": [
+          512,
+          980
+        ],
+        "facing": "side"
+      }
+    ]
+  },
+  {
+    "id": "tulip-yellow",
+    "name": "Yellow Tulip",
+    "category": "focal",
+    "colorway": "yellow",
+    "pricePerStem": 70,
+    "realWidthMm": 60,
+    "bloomWidthMm": 60,
+    "stemLengthMm": 120,
+    "stemColor": "#598a45",
+    "headColor": "#f2c53d",
+    "accentColor": "#d59d1c",
+    "variants": [
+      {
+        "src": "/assets/tulip-yellow-front.png",
+        "anchor": [
+          512,
+          980
+        ],
+        "facing": "front"
+      },
+      {
+        "src": "/assets/tulip-yellow-three-quarter.png",
+        "anchor": [
+          512,
+          980
+        ],
+        "facing": "3q"
+      },
+      {
+        "src": "/assets/tulip-yellow-side.png",
+        "anchor": [
+          512,
+          980
+        ],
+        "facing": "side"
+      }
+    ]
+  },
+  {
+    "id": "carnation-pink",
+    "name": "Pink Carnation",
+    "category": "focal",
+    "colorway": "pink",
+    "pricePerStem": 30,
+    "realWidthMm": 65,
+    "bloomWidthMm": 65,
+    "stemLengthMm": 115,
+    "stemColor": "#5b8a5c",
+    "headColor": "#eda0b4",
+    "accentColor": "#cf7291",
+    "variants": [
+      {
+        "src": "/assets/carnation-pink-front.png",
+        "anchor": [
+          512,
+          980
+        ],
+        "facing": "front"
+      },
+      {
+        "src": "/assets/carnation-pink-three-quarter.png",
+        "anchor": [
+          512,
+          980
+        ],
+        "facing": "3q"
+      },
+      {
+        "src": "/assets/carnation-pink-side.png",
+        "anchor": [
+          512,
+          980
+        ],
+        "facing": "side"
+      }
+    ]
+  },
+  {
+    "id": "lavender",
+    "name": "Lavender",
+    "category": "filler",
+    "colorway": "purple",
+    "pricePerStem": 35,
+    "realWidthMm": 50,
+    "bloomWidthMm": 8,
+    "stemLengthMm": 150,
+    "stemColor": "#6f8f63",
+    "headColor": "#8b6fc4",
+    "accentColor": "#6b51a3",
+    "variants": [
+      {
+        "src": "/assets/lavender-front.png",
+        "anchor": [
+          512,
+          980
+        ],
+        "facing": "front"
+      },
+      {
+        "src": "/assets/lavender-three-quarter.png",
+        "anchor": [
+          512,
+          980
+        ],
+        "facing": "3q"
+      },
+      {
+        "src": "/assets/lavender-side.png",
+        "anchor": [
+          512,
+          980
+        ],
+        "facing": "side"
+      }
+    ]
+  },
+  {
+    "id": "babys-breath",
+    "name": "Baby's Breath",
+    "category": "filler",
+    "colorway": "white",
+    "pricePerStem": 25,
+    "realWidthMm": 130,
+    "bloomWidthMm": 7,
+    "stemLengthMm": 140,
+    "stemColor": "#7d9a6c",
+    "headColor": "#fbf8f2",
+    "accentColor": "#e6e0d2",
+    "variants": [
+      {
+        "src": "/assets/babys-breath-front.png",
+        "anchor": [
+          512,
+          980
+        ],
+        "facing": "front"
+      },
+      {
+        "src": "/assets/babys-breath-three-quarter.png",
+        "anchor": [
+          512,
+          980
+        ],
+        "facing": "3q"
+      },
+      {
+        "src": "/assets/babys-breath-side.png",
+        "anchor": [
+          512,
+          980
+        ],
+        "facing": "side"
+      }
+    ]
+  },
+  {
+    "id": "eucalyptus",
+    "name": "Eucalyptus",
+    "category": "green",
+    "colorway": "sage",
+    "pricePerStem": 20,
+    "realWidthMm": 160,
+    "bloomWidthMm": 20,
+    "stemLengthMm": 158,
+    "stemColor": "#6a7f5c",
+    "headColor": "#8fa87d",
+    "accentColor": "#728a62",
+    "variants": [
+      {
+        "src": "/assets/eucalyptus-front.png",
+        "anchor": [
+          512,
+          980
+        ],
+        "facing": "front"
+      },
+      {
+        "src": "/assets/eucalyptus-three-quarter.png",
+        "anchor": [
+          512,
+          980
+        ],
+        "facing": "3q"
+      },
+      {
+        "src": "/assets/eucalyptus-side.png",
+        "anchor": [
+          512,
+          980
+        ],
+        "facing": "side"
+      }
+    ]
+  },
+  {
+    "id": "ruscus",
+    "name": "Italian Ruscus",
+    "category": "green",
+    "colorway": "deep-green",
+    "pricePerStem": 18,
+    "realWidthMm": 120,
+    "bloomWidthMm": 30,
+    "stemLengthMm": 148,
+    "stemColor": "#3f6134",
+    "headColor": "#4d7a3c",
+    "accentColor": "#3a5f2d",
+    "variants": [
+      {
+        "src": "/assets/ruscus-front.png",
+        "anchor": [
+          512,
+          980
+        ],
+        "facing": "front"
+      },
+      {
+        "src": "/assets/ruscus-three-quarter.png",
+        "anchor": [
+          512,
+          980
+        ],
+        "facing": "3q"
+      },
+      {
+        "src": "/assets/ruscus-side.png",
+        "anchor": [
+          512,
+          980
+        ],
+        "facing": "side"
+      }
+    ]
+  }
+]
