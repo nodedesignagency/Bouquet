@@ -15,8 +15,8 @@
       {
         "src": "/assets/rose-red-front.png",
         "anchor": [
-          512,
-          980
+          631,
+          1739
         ],
         "facing": "front"
       },
@@ -31,8 +31,8 @@
       {
         "src": "/assets/rose-red-side.png",
         "anchor": [
-          470,
-          990
+          619,
+          1743
         ],
         "facing": "side"
       }
@@ -132,8 +132,8 @@
       {
         "src": "/assets/sunflower-front.png",
         "anchor": [
-          512,
-          980
+          635,
+          1642
         ],
         "facing": "front"
       },
@@ -148,8 +148,8 @@
       {
         "src": "/assets/sunflower-side.png",
         "anchor": [
-          512,
-          980
+          522,
+          1710
         ],
         "facing": "side"
       }
@@ -327,8 +327,8 @@
       {
         "src": "/assets/carnation-pink-front.png",
         "anchor": [
-          512,
-          980
+          653,
+          1728
         ],
         "facing": "front"
       },
@@ -343,8 +343,8 @@
       {
         "src": "/assets/carnation-pink-side.png",
         "anchor": [
-          512,
-          980
+          640,
+          1675
         ],
         "facing": "side"
       }

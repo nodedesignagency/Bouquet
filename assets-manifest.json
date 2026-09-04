@@ -1,0 +1,120 @@
+{
+  "generatedAt": "2026-09-04T12:55:00Z",
+  "source": "Magnific",
+  "pipeline": "text-to-image -> images_remove_background -> saved as transparent PNG",
+  "note": "Cutouts are 1248x1872; the text-to-image sources were 1664x2496. Background removal downscaled by 0.75.",
+  "assets": [
+    {
+      "file": "public/assets/rose-red-front.png",
+      "originalCreation": "1lyjA2jr4r",
+      "cutoutCreation": "rgPLIMTxtc",
+      "cutoutWebUrl": "https://www.magnific.com/app/creation/rgPLIMTxtc",
+      "originalWebUrl": "https://www.magnific.com/app/creation/1lyjA2jr4r"
+    },
+    {
+      "file": "public/assets/rose-red-3q.png",
+      "originalCreation": "SyR7MYRUb8",
+      "cutoutCreation": "P3YN5c042C",
+      "cutoutWebUrl": "https://www.magnific.com/app/creation/P3YN5c042C",
+      "originalWebUrl": "https://www.magnific.com/app/creation/SyR7MYRUb8"
+    },
+    {
+      "file": "public/assets/rose-red-side.png",
+      "originalCreation": "xS4sYc7jfW",
+      "cutoutCreation": "dtuo3DcXSL",
+      "cutoutWebUrl": "https://www.magnific.com/app/creation/dtuo3DcXSL",
+      "originalWebUrl": "https://www.magnific.com/app/creation/xS4sYc7jfW"
+    },
+    {
+      "file": "public/assets/rose-red-bud.png",
+      "originalCreation": "1lyjzeir4r",
+      "cutoutCreation": "dtuoRfIXSL",
+      "cutoutWebUrl": "https://www.magnific.com/app/creation/dtuoRfIXSL",
+      "originalWebUrl": "https://www.magnific.com/app/creation/1lyjzeir4r"
+    },
+    {
+      "file": "public/assets/lily-white-front.png",
+      "originalCreation": "N203vEM6D9",
+      "cutoutCreation": "p8CXi1Pehw",
+      "cutoutWebUrl": "https://www.magnific.com/app/creation/p8CXi1Pehw",
+      "originalWebUrl": "https://www.magnific.com/app/creation/N203vEM6D9"
+    },
+    {
+      "file": "public/assets/lily-white-3q.png",
+      "originalCreation": "MBaej9cDCm",
+      "cutoutCreation": "UPZJQF4wny",
+      "cutoutWebUrl": "https://www.magnific.com/app/creation/UPZJQF4wny",
+      "originalWebUrl": "https://www.magnific.com/app/creation/MBaej9cDCm"
+    },
+    {
+      "file": "public/assets/lily-white-side.png",
+      "originalCreation": "UPZJdrdwny",
+      "cutoutCreation": "O6z4bUbynm",
+      "cutoutWebUrl": "https://www.magnific.com/app/creation/O6z4bUbynm",
+      "originalWebUrl": "https://www.magnific.com/app/creation/UPZJdrdwny"
+    },
+    {
+      "file": "public/assets/lily-white-bud.png",
+      "originalCreation": "4RW6hNC9Aa",
+      "cutoutCreation": "jU9laP2LD0",
+      "cutoutWebUrl": "https://www.magnific.com/app/creation/jU9laP2LD0",
+      "originalWebUrl": "https://www.magnific.com/app/creation/4RW6hNC9Aa"
+    },
+    {
+      "file": "public/assets/carnation-pink-front.png",
+      "originalCreation": "LwNgM4DswO",
+      "cutoutCreation": "lJiUEV4gv9",
+      "cutoutWebUrl": "https://www.magnific.com/app/creation/lJiUEV4gv9",
+      "originalWebUrl": "https://www.magnific.com/app/creation/LwNgM4DswO"
+    },
+    {
+      "file": "public/assets/carnation-pink-3q.png",
+      "originalCreation": "DofdsHFpcl",
+      "cutoutCreation": "lJiUEtygv9",
+      "cutoutWebUrl": "https://www.magnific.com/app/creation/lJiUEtygv9",
+      "originalWebUrl": "https://www.magnific.com/app/creation/DofdsHFpcl"
+    },
+    {
+      "file": "public/assets/carnation-pink-side.png",
+      "originalCreation": "rgPL0nextc",
+      "cutoutCreation": "jU9laQrLD0",
+      "cutoutWebUrl": "https://www.magnific.com/app/creation/jU9laQrLD0",
+      "originalWebUrl": "https://www.magnific.com/app/creation/rgPL0nextc"
+    },
+    {
+      "file": "public/assets/carnation-pink-bud.png",
+      "originalCreation": "gO3weIZSXO",
+      "cutoutCreation": "LwNgCO9swO",
+      "cutoutWebUrl": "https://www.magnific.com/app/creation/LwNgCO9swO",
+      "originalWebUrl": "https://www.magnific.com/app/creation/gO3weIZSXO"
+    },
+    {
+      "file": "public/assets/sunflower-front.png",
+      "originalCreation": "fHxu6MiCDY",
+      "cutoutCreation": "ksOxmRw16B",
+      "cutoutWebUrl": "https://www.magnific.com/app/creation/ksOxmRw16B",
+      "originalWebUrl": "https://www.magnific.com/app/creation/fHxu6MiCDY"
+    },
+    {
+      "file": "public/assets/sunflower-3q.png",
+      "originalCreation": "SyR7drEUb8",
+      "cutoutCreation": "MBaeiljDCm",
+      "cutoutWebUrl": "https://www.magnific.com/app/creation/MBaeiljDCm",
+      "originalWebUrl": "https://www.magnific.com/app/creation/SyR7drEUb8"
+    },
+    {
+      "file": "public/assets/sunflower-side.png",
+      "originalCreation": "LwNgDgGswO",
+      "cutoutCreation": "4RW6rL39Aa",
+      "cutoutWebUrl": "https://www.magnific.com/app/creation/4RW6rL39Aa",
+      "originalWebUrl": "https://www.magnific.com/app/creation/LwNgDgGswO"
+    },
+    {
+      "file": "public/assets/sunflower-small-3q.png",
+      "originalCreation": "SyR7XiJUb8",
+      "cutoutCreation": "s76SEsPl8e",
+      "cutoutWebUrl": "https://www.magnific.com/app/creation/s76SEsPl8e",
+      "originalWebUrl": "https://www.magnific.com/app/creation/SyR7XiJUb8"
+    }
+  ]
+}
