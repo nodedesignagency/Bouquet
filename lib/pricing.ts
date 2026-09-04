@@ -3,11 +3,10 @@ import type { BouquetState } from "./types";
 import { getMaterial, getRibbon, getWrapStyle } from "./wrap";
 
 /**
- * Prices are held as whole rupees. Change these two lines to trade in another
- * currency — nothing else in the app formats money.
+ * Prices are held as whole rupees. This is the only place in the app that
+ * formats money, so it is the only line to change to trade in another currency.
  */
 export const CURRENCY_SYMBOL = "₹";
-export const CURRENCY_CODE = "INR";
 
 export function formatPrice(amount: number): string {
   return `${CURRENCY_SYMBOL}${Math.round(amount).toLocaleString("en-IN")}`;
@@ -82,9 +81,4 @@ export function priceBouquet(state: BouquetState): PriceBreakdown {
     finishingTotal,
     total: stemsTotal + finishingTotal,
   };
-}
-
-/** What the flowers alone cost. */
-export function stemsSubtotal(state: BouquetState): number {
-  return state.stems.reduce((sum, stem) => sum + getItemOrFallback(stem.itemId).pricePerStem, 0);
 }

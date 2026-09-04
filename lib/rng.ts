@@ -51,18 +51,6 @@ export function randSigned(seed: number, n: number, channel: string, sub = 0): n
   return rand(seed, n, channel, sub) * 2 - 1;
 }
 
-/** A pure random value in [min, max). */
-export function randRange(
-  seed: number,
-  n: number,
-  channel: string,
-  min: number,
-  max: number,
-  sub = 0,
-): number {
-  return min + rand(seed, n, channel, sub) * (max - min);
-}
-
 /** A pure coin flip that is true with probability `p`. */
 export function randChance(
   seed: number,

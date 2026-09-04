@@ -274,6 +274,12 @@ export function buildWrap(
   layout: Layout,
   placed: PlacedStem[],
 ): WrapGeometry {
+  // Nothing to wrap. A collar and a bow tied around thin air reads as a bug,
+  // and the empty stage is the clearer invitation to add a stem.
+  if (placed.length === 0) {
+    return { gradients: [], back: [], front: [], tape: [], ribbon: [], baseBottomY: null };
+  }
+
   const style = getWrapStyle(state.wrapStyle);
   const material = getMaterial(state.wrapMaterial);
   const ribbon = getRibbon(state.ribbon);
