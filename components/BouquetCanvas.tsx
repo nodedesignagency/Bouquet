@@ -27,6 +27,8 @@ const STEM_WIDTH_MM = 6;
 interface Props {
   state: BouquetState;
   className?: string;
+  /** Draws the spiral the engine used. Never included in an export. */
+  showGuides?: boolean;
 }
 
 /**
@@ -37,7 +39,7 @@ interface Props {
  * back visually with a shared filter rather than by hand-tuning opacity per
  * sprite.
  */
-export function BouquetCanvas({ state, className }: Props) {
+export function BouquetCanvas({ state, className, showGuides = false }: Props) {
   const { layout, placed, byLayer } = useMemo(() => {
     const nextLayout = computeLayout(CANVAS_WIDTH, CANVAS_HEIGHT, state);
     const nextPlaced = placeStems(state, nextLayout);
@@ -77,6 +79,8 @@ export function BouquetCanvas({ state, className }: Props) {
           {renderLayer(layer, byLayer.get(layer) ?? [], placed, state, layout)}
         </g>
       ))}
+
+      {showGuides ? <Guides placed={placed} layout={layout} /> : null}
     </svg>
   );
 }
@@ -146,6 +150,63 @@ export function StemBundle({
           />
         );
       })}
+    </g>
+  );
+}
+
+/**
+ * The engine, made visible: the tie point, the ring boundaries, and the path
+ * the golden angle walks from stem to stem. Marked `data-guides` so the PNG
+ * export can drop it without knowing anything else about the drawing.
+ */
+function Guides({ placed, layout }: { placed: PlacedStem[]; layout: Layout }) {
+  // Ring radii are read back off the placed stems rather than recomputed, so
+  // the guides follow the spiral after the fit pass has reined it in.
+  const ringRadii = new Map<number, number>();
+  for (const stem of placed) {
+    if (stem.ring === 0) continue;
+    const current = ringRadii.get(stem.ring);
+    if (current === undefined || stem.radiusPx < current) ringRadii.set(stem.ring, stem.radiusPx);
+  }
+
+  const spiral = placed
+    .map((s, i) => `${i === 0 ? "M" : "L"} ${s.headX.toFixed(1)} ${s.headY.toFixed(1)}`)
+    .join(" ");
+
+  return (
+    <g data-guides="true" pointerEvents="none">
+      {[...ringRadii].map(([ring, radius]) => (
+        <circle
+          key={ring}
+          cx={layout.tieX}
+          cy={layout.tieY}
+          r={radius}
+          fill="none"
+          stroke="#93a983"
+          strokeWidth={1}
+          strokeDasharray="4 6"
+          opacity={0.35}
+        />
+      ))}
+      {placed.length > 1 ? (
+        <path d={spiral} fill="none" stroke="#d7a05a" strokeWidth={1.5} opacity={0.55} />
+      ) : null}
+      {placed.map((s) => (
+        <circle key={s.key} cx={s.headX} cy={s.headY} r={3} fill="#d7a05a" opacity={0.8} />
+      ))}
+      <g stroke="#d7a05a" strokeWidth={1.5}>
+        <line x1={layout.tieX - 14} y1={layout.tieY} x2={layout.tieX + 14} y2={layout.tieY} />
+        <line x1={layout.tieX} y1={layout.tieY - 14} x2={layout.tieX} y2={layout.tieY + 14} />
+      </g>
+      <text
+        x={layout.tieX + 20}
+        y={layout.tieY + 4}
+        fill="#d7a05a"
+        fontSize={13}
+        fontFamily="var(--font-mono), monospace"
+      >
+        tie 50% / 72%
+      </text>
     </g>
   );
 }

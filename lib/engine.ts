@@ -67,7 +67,17 @@ const RING_SPACING_MAX_MM = 90;
  */
 const FIT_HALF_WIDTH = 0.5;
 const FIT_TOP_MARGIN = 0.03;
-const FIT_SPRITE_MARGIN = 0.36;
+
+/**
+ * How much of its own width a sprite must keep inside the frame, by category.
+ * A focal flower cut in half by the edge looks like a mistake; a sprig of
+ * eucalyptus running out of frame is just how these photographs are cropped.
+ */
+const FIT_SPRITE_MARGIN: Record<CatalogItem["category"], number> = {
+  focal: 0.45,
+  filler: 0.24,
+  green: 0.15,
+};
 
 /** Share of greens promoted in front of the focal flowers. */
 const FRONT_GREEN_CHANCE = 0.3;
@@ -237,7 +247,8 @@ function solveHorizontalFit(placed: PlacedStem[], layout: Layout): number {
   for (const stem of placed) {
     const dx = Math.abs(stem.headX - layout.tieX);
     if (dx < 1e-6) continue;
-    fit = Math.min(fit, Math.max(0, limit - stem.widthPx * FIT_SPRITE_MARGIN) / dx);
+    const keep = stem.widthPx * FIT_SPRITE_MARGIN[stem.item.category];
+    fit = Math.min(fit, Math.max(0, limit - keep) / dx);
   }
   return Math.min(1, fit);
 }
@@ -249,7 +260,7 @@ function solveVerticalFit(placed: PlacedStem[], layout: Layout): number {
   for (const stem of placed) {
     const rise = layout.tieY - stem.headY;
     if (rise < 1e-6) continue;
-    const allowed = layout.tieY - limit - stem.widthPx * FIT_SPRITE_MARGIN;
+    const allowed = layout.tieY - limit - stem.widthPx * FIT_SPRITE_MARGIN[stem.item.category];
     fit = Math.min(fit, Math.max(0, allowed) / rise);
   }
   return Math.min(1, fit);

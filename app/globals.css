@@ -12,27 +12,43 @@ body {
 }
 
 body {
-  background:
-    radial-gradient(120% 80% at 50% -10%, #241f27 0%, #131116 55%, #0b0a0c 100%);
-  color: #ece8ef;
+  background: #141110;
+  color: #f2ebe4;
   -webkit-font-smoothing: antialiased;
 }
 
-/* The canvas checker, so transparent wrap materials read correctly. */
-.canvas-stage {
-  background-image:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.028) 25%, transparent 25%),
-    linear-gradient(225deg, rgba(255, 255, 255, 0.028) 25%, transparent 25%),
-    linear-gradient(45deg, rgba(255, 255, 255, 0.028) 25%, transparent 25%),
-    linear-gradient(315deg, rgba(255, 255, 255, 0.028) 25%, transparent 25%);
-  background-size: 22px 22px;
-  background-position:
-    11px 0,
-    11px 0,
-    0 0,
-    0 0;
+@layer components {
+  /* The stage the bouquet is photographed against: warm seamless paper. */
+  .stage-paper {
+    background:
+      radial-gradient(120% 90% at 50% 8%, #2e2621 0%, #201b18 48%, #171310 100%);
+  }
+
+  .rule-label {
+    @apply font-mono text-[10px] uppercase tracking-label text-bench-400;
+  }
+
+  .panel {
+    @apply rounded-lg border border-bench-600 bg-bench-800;
+  }
+}
+
+/* Focus is always visible, and always the same shape. */
+:where(button, [role="button"], a, input, select, summary):focus-visible {
+  outline: 2px solid #d7a05a;
+  outline-offset: 2px;
+  border-radius: 3px;
 }
 
 input[type="range"] {
-  accent-color: #d9799a;
+  accent-color: #d7a05a;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }
