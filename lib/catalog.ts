@@ -27,6 +27,8 @@ function normalizeItem(raw: (typeof rawCatalog)[number]): CatalogItem {
     variants: raw.variants.map((v) => ({
       src: v.src,
       anchor: [v.anchor[0], v.anchor[1]] as [number, number],
+      size: [v.size?.[0] ?? 0, v.size?.[1] ?? 0] as [number, number],
+      headY: v.headY ?? 0,
       facing: v.facing as CatalogItem["variants"][number]["facing"],
     })),
   };

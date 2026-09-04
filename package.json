@@ -12,7 +12,8 @@
     "verify:engine": "tsx scripts/verify-engine.ts",
     "verify:anchors": "tsx scripts/verify-anchors.ts",
     "verify": "npm run verify:engine && npm run verify:anchors",
-    "review": "tsx scripts/build-review.ts"
+    "review": "tsx scripts/build-review.ts",
+    "crop-sprites": "tsx scripts/crop-sprites.ts"
   },
   "dependencies": {
     "next": "^14.2.35",

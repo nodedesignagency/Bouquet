@@ -15,6 +15,17 @@
  * thing they can meaningfully be measured in. Nothing downstream sizes anything
  * from those pixels: the renderer converts the anchor to a fraction of the
  * sprite and places it using the millimetre sizing rule.
+ *
+ * It also records two things the renderer cannot work without:
+ *
+ *  - `size`, the sprite's pixel dimensions. Not sizing — width still comes from
+ *    millimetres — but the aspect ratio decides the sprite's shape, and reading
+ *    it from the catalog means the server and the browser agree on that shape
+ *    before a single image has loaded.
+ *  - `headY`, the row the bloom's centre sits on, found as the widest opaque row
+ *    in the upper part of the sprite. The engine decides where a head belongs;
+ *    this is what lets the renderer put the artwork's actual bloom there rather
+ *    than wherever the artist happened to frame it.
  */
 
 import { readdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -33,6 +44,10 @@ const DEFAULT_THRESHOLD = 8;
 interface Variant {
   src: string;
   anchor: [number, number];
+  /** Pixel dimensions of the sprite: [width, height]. */
+  size: [number, number];
+  /** Row the middle of the bloom sits on, in the sprite's own pixels. */
+  headY: number;
   facing: string;
 }
 
@@ -47,6 +62,44 @@ interface Anchor {
   y: number;
   width: number;
   height: number;
+}
+
+/**
+ * The row carrying the widest run of opaque pixels in the upper part of the
+ * sprite — the middle of the bloom.
+ *
+ * Restricted to the top of the image because leaves lower down the stem can be
+ * wider than the flower on a three-quarter view, and it is the flower that has
+ * to land where the engine asks.
+ */
+export function findHeadRow(
+  alpha: Uint8Array,
+  width: number,
+  height: number,
+  threshold: number,
+): number {
+  const limit = Math.max(1, Math.floor(height * 0.6));
+  let bestSpan = -1;
+  let bestRow = 0;
+
+  for (let y = 0; y < limit; y += 1) {
+    const row = y * width;
+    let first = -1;
+    let last = -1;
+    for (let x = 0; x < width; x += 1) {
+      if (alpha[row + x] > threshold) {
+        if (first < 0) first = x;
+        last = x;
+      }
+    }
+    const span = first < 0 ? 0 : last - first + 1;
+    if (span > bestSpan) {
+      bestSpan = span;
+      bestRow = y;
+    }
+  }
+
+  return bestRow;
 }
 
 /**
@@ -139,9 +192,11 @@ function main() {
     }
 
     let anchor: Anchor | null;
+    let headY = 0;
     try {
       const { width, height, alpha } = decodeAlpha(readFileSync(join(ASSETS_DIR, file)));
       anchor = findAnchor(alpha, width, height, threshold);
+      headY = findHeadRow(alpha, width, height, threshold);
     } catch (error) {
       failures.push(`${file}: ${error instanceof PngError ? error.message : String(error)}`);
       continue;
@@ -153,16 +208,24 @@ function main() {
     }
 
     const [oldX, oldY] = target.variant.anchor;
-    const moved = oldX !== anchor.x || oldY !== anchor.y;
+    const [oldW, oldH] = target.variant.size ?? [0, 0];
+    const moved =
+      oldX !== anchor.x ||
+      oldY !== anchor.y ||
+      oldW !== anchor.width ||
+      oldH !== anchor.height ||
+      target.variant.headY !== headY;
     target.variant.anchor = [anchor.x, anchor.y];
+    target.variant.size = [anchor.width, anchor.height];
+    target.variant.headY = headY;
 
     if (moved) changed += 1;
     else unchanged += 1;
 
     console.log(
       `  ${moved ? "→" : "·"} ${file.padEnd(38)} anchor [${anchor.x}, ${anchor.y}]` +
-        ` of ${anchor.width}×${anchor.height}` +
-        (moved ? `  (was [${oldX}, ${oldY}])` : ""),
+        ` head row ${headY} of ${anchor.width}×${anchor.height}` +
+        (moved ? `  (was [${oldX}, ${oldY}] of ${oldW}×${oldH})` : ""),
     );
   }
 

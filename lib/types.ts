@@ -19,7 +19,7 @@ export type StemCategory = "focal" | "filler" | "green";
 export type Facing = "front" | "3q" | "side" | "bud";
 
 export interface CatalogVariant {
-  /** Path under /public. Unused until step 5 — the engine renders circles today. */
+  /** Path under /public. */
   src: string;
   /**
    * Pixel coordinate, in the source PNG's own pixel space, of the point where
@@ -27,6 +27,24 @@ export interface CatalogVariant {
    * Written by `scripts/derive-anchors.ts`.
    */
   anchor: [number, number];
+  /**
+   * Pixel dimensions of the sprite, [width, height], written by
+   * `scripts/derive-anchors.ts`. Not used for sizing — width always comes from
+   * millimetres — but the renderer needs the aspect ratio to avoid squashing
+   * the flower, and having it here means the shape is known before any image
+   * has loaded, so the server and the browser draw the same thing.
+   */
+  size: [number, number];
+  /**
+   * Row the middle of the bloom sits on, in the sprite's own pixels. Written by
+   * `scripts/derive-anchors.ts`.
+   *
+   * The artwork is framed per flower, not to a common scale, so a small-bloomed
+   * carnation comes with a proportionally shorter stem than a lily. Knowing
+   * where each sprite carries its bloom lets the renderer put that bloom where
+   * the engine asked for it, instead of inheriting the artist's framing.
+   */
+  headY: number;
   facing: Facing;
 }
 
@@ -54,13 +72,18 @@ export interface CatalogItem {
   /**
    * Real-world length of the stem that is visible above the tie point, in
    * millimetres. Sets how far the head sits from the tie point.
+   *
+   * Measured from the artwork rather than guessed: it is the distance from the
+   * sprite's anchor up to the middle of its bloom, converted through
+   * `realWidthMm`. Keeping the two in agreement is what stops a gap of bare
+   * stem opening up between the wrap and the flowers.
    */
   stemLengthMm: number;
   /** Stem/foliage colour, used for the stem line and the bundle below the tie. */
   stemColor: string;
-  /** Placeholder fill for the head. Replaced by the PNG in step 5. */
+  /** Fallback fill for the head, used when a variant has no artwork. */
   headColor: string;
-  /** Placeholder accent (petal edge / centre disc). */
+  /** Fallback accent (petal edge / centre disc). */
   accentColor: string;
   variants: CatalogVariant[];
 }

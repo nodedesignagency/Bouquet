@@ -105,11 +105,13 @@ export function cycleVariant(state: BouquetState, stemIndex: number): BouquetSta
  * have clicked together themselves.
  */
 export function starterBouquet(): BouquetState {
+  // Biggest blooms first: placement follows the order stems were added, so
+  // adding the sunflower last would fling it to the rim of the spiral.
   const recipe: Array<[string, number]> = [
+    ["sunflower-small", 1],
     ["lily-white", 3],
     ["rose-red", 5],
     ["carnation-pink", 4],
-    ["sunflower-small", 1],
   ];
   let state = DEFAULT_STATE;
   for (const [itemId, count] of recipe) {

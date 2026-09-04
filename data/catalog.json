@@ -7,7 +7,7 @@
     "pricePerStem": 45,
     "realWidthMm": 75,
     "bloomWidthMm": 75,
-    "stemLengthMm": 130,
+    "stemLengthMm": 163,
     "stemColor": "#55632c",
     "headColor": "#a5142b",
     "accentColor": "#4a0206",
@@ -15,34 +15,54 @@
       {
         "src": "/assets/rose-red-front.png",
         "anchor": [
-          631,
-          1739
+          257,
+          1334
         ],
-        "facing": "front"
+        "facing": "front",
+        "size": [
+          542,
+          1335
+        ],
+        "headY": 181
       },
       {
         "src": "/assets/rose-red-three-quarter.png",
         "anchor": [
-          623,
-          1738
+          249,
+          1332
         ],
-        "facing": "3q"
+        "facing": "3q",
+        "size": [
+          543,
+          1333
+        ],
+        "headY": 184
       },
       {
         "src": "/assets/rose-red-side.png",
         "anchor": [
-          619,
-          1743
+          194,
+          1346
         ],
-        "facing": "side"
+        "facing": "side",
+        "size": [
+          544,
+          1347
+        ],
+        "headY": 266
       },
       {
         "src": "/assets/rose-red-bud.png",
         "anchor": [
-          631,
-          1731
+          210,
+          1313
         ],
-        "facing": "bud"
+        "facing": "bud",
+        "size": [
+          425,
+          1314
+        ],
+        "headY": 258
       }
     ]
   },
@@ -54,7 +74,7 @@
     "pricePerStem": 90,
     "realWidthMm": 150,
     "bloomWidthMm": 150,
-    "stemLengthMm": 150,
+    "stemLengthMm": 153,
     "stemColor": "#3d5c22",
     "headColor": "#f2eee3",
     "accentColor": "#cdc4ae",
@@ -62,34 +82,54 @@
       {
         "src": "/assets/lily-white-front.png",
         "anchor": [
-          659,
-          1724
+          515,
+          1510
         ],
-        "facing": "front"
+        "facing": "front",
+        "size": [
+          984,
+          1511
+        ],
+        "headY": 562
       },
       {
         "src": "/assets/lily-white-three-quarter.png",
         "anchor": [
-          592,
-          1618
+          412,
+          1277
         ],
-        "facing": "3q"
+        "facing": "3q",
+        "size": [
+          929,
+          1278
+        ],
+        "headY": 442
       },
       {
         "src": "/assets/lily-white-side.png",
         "anchor": [
-          539,
-          1702
+          364,
+          1433
         ],
-        "facing": "side"
+        "facing": "side",
+        "size": [
+          837,
+          1434
+        ],
+        "headY": 500
       },
       {
         "src": "/assets/lily-white-bud.png",
         "anchor": [
-          620,
-          1683
+          426,
+          1449
         ],
-        "facing": "bud"
+        "facing": "bud",
+        "size": [
+          834,
+          1450
+        ],
+        "headY": 531
       }
     ]
   },
@@ -101,7 +141,7 @@
     "pricePerStem": 30,
     "realWidthMm": 65,
     "bloomWidthMm": 65,
-    "stemLengthMm": 115,
+    "stemLengthMm": 124,
     "stemColor": "#5d7042",
     "headColor": "#e8a9ac",
     "accentColor": "#c1807a",
@@ -109,34 +149,54 @@
       {
         "src": "/assets/carnation-pink-front.png",
         "anchor": [
-          653,
-          1728
+          379,
+          1468
         ],
-        "facing": "front"
+        "facing": "front",
+        "size": [
+          711,
+          1469
+        ],
+        "headY": 288
       },
       {
         "src": "/assets/carnation-pink-three-quarter.png",
         "anchor": [
-          529,
-          1666
+          134,
+          1407
         ],
-        "facing": "3q"
+        "facing": "3q",
+        "size": [
+          560,
+          1408
+        ],
+        "headY": 276
       },
       {
         "src": "/assets/carnation-pink-side.png",
         "anchor": [
-          640,
-          1675
+          235,
+          1277
         ],
-        "facing": "side"
+        "facing": "side",
+        "size": [
+          517,
+          1278
+        ],
+        "headY": 201
       },
       {
         "src": "/assets/carnation-pink-bud.png",
         "anchor": [
-          601,
-          1717
+          222,
+          1409
         ],
-        "facing": "bud"
+        "facing": "bud",
+        "size": [
+          408,
+          1410
+        ],
+        "headY": 634
       }
     ]
   },
@@ -148,7 +208,7 @@
     "pricePerStem": 65,
     "realWidthMm": 180,
     "bloomWidthMm": 180,
-    "stemLengthMm": 165,
+    "stemLengthMm": 190,
     "stemColor": "#8c8f40",
     "headColor": "#edb52c",
     "accentColor": "#4a2c12",
@@ -156,26 +216,41 @@
       {
         "src": "/assets/sunflower-front.png",
         "anchor": [
-          635,
-          1642
+          401,
+          1354
         ],
-        "facing": "front"
+        "facing": "front",
+        "size": [
+          775,
+          1355
+        ],
+        "headY": 338
       },
       {
         "src": "/assets/sunflower-three-quarter.png",
         "anchor": [
-          614,
-          1618
+          399,
+          1267
         ],
-        "facing": "3q"
+        "facing": "3q",
+        "size": [
+          762,
+          1268
+        ],
+        "headY": 558
       },
       {
         "src": "/assets/sunflower-side.png",
         "anchor": [
-          522,
-          1710
+          356,
+          1497
         ],
-        "facing": "side"
+        "facing": "side",
+        "size": [
+          900,
+          1498
+        ],
+        "headY": 670
       }
     ]
   },
@@ -187,7 +262,7 @@
     "pricePerStem": 45,
     "realWidthMm": 120,
     "bloomWidthMm": 120,
-    "stemLengthMm": 150,
+    "stemLengthMm": 167,
     "stemColor": "#9a954f",
     "headColor": "#e9b02f",
     "accentColor": "#673b13",
@@ -195,10 +270,15 @@
       {
         "src": "/assets/sunflower-small-three-quarter.png",
         "anchor": [
-          657,
-          1704
+          434,
+          1458
         ],
-        "facing": "3q"
+        "facing": "3q",
+        "size": [
+          839,
+          1459
+        ],
+        "headY": 291
       }
     ]
   }

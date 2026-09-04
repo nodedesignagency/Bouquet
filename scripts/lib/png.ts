@@ -1,17 +1,17 @@
 /**
- * A minimal PNG reader, for alpha only.
+ * A minimal PNG reader and writer.
  *
- * `derive-anchors` needs one thing from a sprite: which pixels are opaque.
- * Node already ships the hard part (zlib), so this decodes the container and
- * the scanline filters by hand rather than pulling an image library into the
- * project for a build script.
+ * The build scripts need two things from a sprite: which pixels are opaque, and
+ * the pixels themselves so they can be cropped. Node already ships the hard part
+ * (zlib), so this decodes the container and the scanline filters by hand rather
+ * than pulling an image library into the project for two build scripts.
  *
- * Covers every colour type and bit depth in the base PNG spec, including
+ * Reading covers every colour type and bit depth in the base PNG spec, including
  * palettes with tRNS. Interlaced files are rejected with an explanation rather
- * than decoded wrongly.
+ * than decoded wrongly. Writing emits 8-bit RGBA, which is all a sprite needs.
  */
 
-import { inflateSync } from "node:zlib";
+import { deflateSync, inflateSync } from "node:zlib";
 
 const SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
@@ -25,6 +25,13 @@ export interface AlphaMask {
   height: number;
   /** One byte per pixel, row-major. 0 is fully transparent. */
   alpha: Uint8Array;
+}
+
+export interface Bitmap {
+  width: number;
+  height: number;
+  /** Four bytes per pixel, row-major, non-premultiplied. */
+  rgba: Uint8Array;
 }
 
 interface Chunks {
@@ -201,4 +208,156 @@ export function decodeAlpha(buffer: Buffer): AlphaMask {
   }
 
   return { width, height, alpha };
+}
+
+/**
+ * Decodes a PNG to 8-bit RGBA.
+ *
+ * Colour is read alongside alpha so a sprite can be cropped and written back
+ * out. 16-bit samples are taken from their high byte, which is all the sprite
+ * pipeline needs.
+ */
+export function decodeRgba(buffer: Buffer): Bitmap {
+  const { ihdr, idat, plte, trns } = readChunks(buffer);
+
+  const width = ihdr.readUInt32BE(0);
+  const height = ihdr.readUInt32BE(4);
+  const bitDepth = ihdr[8];
+  const colorType = ihdr[9];
+
+  if (ihdr[12] !== 0) {
+    throw new PngError("Interlaced PNGs are not supported — re-export without Adam7 interlacing.");
+  }
+  const channels = CHANNELS[colorType];
+  if (!channels) throw new PngError(`Unsupported colour type ${colorType}.`);
+
+  const bitsPerPixel = channels * bitDepth;
+  const bytesPerLine = Math.ceil((width * bitsPerPixel) / 8);
+  const bpp = Math.max(1, Math.ceil(bitsPerPixel / 8));
+  const samples = unfilter(inflateSync(idat), height, bytesPerLine, bpp);
+  const { alpha } = decodeAlpha(buffer);
+
+  const rgba = new Uint8Array(width * height * 4);
+  const step = bitDepth === 16 ? 2 : 1;
+  const scale = bitDepth < 8 ? 255 / ((1 << bitDepth) - 1) : 1;
+
+  for (let y = 0; y < height; y += 1) {
+    const line = y * bytesPerLine;
+    for (let x = 0; x < width; x += 1) {
+      const out = (y * width + x) * 4;
+      let r: number;
+      let g: number;
+      let b: number;
+
+      if (colorType === 3) {
+        const index = bitDepth < 8 ? readPacked(samples, line, x, bitDepth) : samples[line + x];
+        if (!plte) throw new PngError("Paletted PNG has no palette.");
+        r = plte[index * 3];
+        g = plte[index * 3 + 1];
+        b = plte[index * 3 + 2];
+      } else if (colorType === 0 || colorType === 4) {
+        const grey =
+          bitDepth < 8
+            ? Math.round(readPacked(samples, line, x * channels, bitDepth) * scale)
+            : samples[line + x * channels * step];
+        r = grey;
+        g = grey;
+        b = grey;
+      } else {
+        const pixel = line + x * channels * step;
+        r = samples[pixel];
+        g = samples[pixel + step];
+        b = samples[pixel + 2 * step];
+      }
+
+      rgba[out] = r;
+      rgba[out + 1] = g;
+      rgba[out + 2] = b;
+      rgba[out + 3] = alpha[y * width + x];
+    }
+  }
+
+  void trns;
+  return { width, height, rgba };
+}
+
+const CRC_TABLE = Int32Array.from({ length: 256 }, (_, n) => {
+  let c = n;
+  for (let k = 0; k < 8; k += 1) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
+  return c >>> 0;
+});
+
+function crc32(buffer: Buffer): number {
+  let c = 0xffffffff;
+  for (const byte of buffer) c = CRC_TABLE[(c ^ byte) & 0xff] ^ (c >>> 8);
+  return (c ^ 0xffffffff) >>> 0;
+}
+
+function chunk(type: string, data: Buffer): Buffer {
+  const length = Buffer.alloc(4);
+  length.writeUInt32BE(data.length);
+  const body = Buffer.concat([Buffer.from(type, "ascii"), data]);
+  const crc = Buffer.alloc(4);
+  crc.writeUInt32BE(crc32(body));
+  return Buffer.concat([length, body, crc]);
+}
+
+/**
+ * Writes an 8-bit RGBA PNG.
+ *
+ * Each scanline is offered to all five filters and the one with the smallest
+ * sum of absolute differences wins — the heuristic libpng itself uses. On these
+ * sprites it roughly halves the file against writing every line unfiltered.
+ */
+export function encodeRgba({ width, height, rgba }: Bitmap): Buffer {
+  const stride = width * 4;
+  const raw = Buffer.alloc(height * (stride + 1));
+  const candidates = [Buffer.alloc(stride), Buffer.alloc(stride), Buffer.alloc(stride), Buffer.alloc(stride), Buffer.alloc(stride)];
+
+  for (let y = 0; y < height; y += 1) {
+    const line = y * stride;
+    const prev = line - stride;
+
+    for (let x = 0; x < stride; x += 1) {
+      const v = rgba[line + x];
+      const a = x >= 4 ? rgba[line + x - 4] : 0;
+      const b = y > 0 ? rgba[prev + x] : 0;
+      const c = x >= 4 && y > 0 ? rgba[prev + x - 4] : 0;
+      candidates[0][x] = v;
+      candidates[1][x] = (v - a) & 0xff;
+      candidates[2][x] = (v - b) & 0xff;
+      candidates[3][x] = (v - ((a + b) >> 1)) & 0xff;
+      candidates[4][x] = (v - paeth(a, b, c)) & 0xff;
+    }
+
+    let best = 0;
+    let bestScore = Infinity;
+    for (let f = 0; f < 5; f += 1) {
+      let score = 0;
+      for (let x = 0; x < stride; x += 1) {
+        const s = candidates[f][x];
+        score += s < 128 ? s : 256 - s;
+      }
+      if (score < bestScore) {
+        bestScore = score;
+        best = f;
+      }
+    }
+
+    const out = y * (stride + 1);
+    raw[out] = best;
+    candidates[best].copy(raw, out + 1);
+  }
+
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr[8] = 8; // bit depth
+  ihdr[9] = 6; // RGBA
+  return Buffer.concat([
+    SIGNATURE,
+    chunk("IHDR", ihdr),
+    chunk("IDAT", deflateSync(raw, { level: 9 })),
+    chunk("IEND", Buffer.alloc(0)),
+  ]);
 }

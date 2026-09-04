@@ -356,12 +356,13 @@ export function buildWrap(
     );
   }
 
-  const tape: WrapShape[] = state.hasTape
-    ? [tapeBand(tx, ty, Math.max(baseHalf, massHalf * 0.22), layout, seed)]
-    : [];
+  // Tape binds the stems at the neck, so it is sized to the neck — not to the
+  // flower mass, which would have it sticking out either side of the wrap.
+  const neckHalf = style.id === "none" ? massHalf * 0.16 : baseHalf * 0.54;
+  const tape: WrapShape[] = state.hasTape ? [tapeBand(tx, ty, neckHalf, layout, seed)] : [];
 
   const ribbonShapes =
-    ribbon.widthMm > 0 ? bow(tx, ty, Math.max(baseHalf, massHalf * 0.3), layout, ribbon, seed) : [];
+    ribbon.widthMm > 0 ? bow(tx, ty, neckHalf * 1.32, layout, ribbon, seed) : [];
 
   return {
     gradients: gradients.map((gradient) => ({
@@ -552,7 +553,7 @@ function baseBody(
 /** A band of floral tape across the bind, sitting slightly off square. */
 function tapeBand(tx: number, ty: number, half: number, layout: Layout, seed: number): WrapShape {
   const h = spriteWidthPx(TAPE_WIDTH_MM, layout.width, 1);
-  const w = half * 1.5;
+  const w = half * 1.15;
   const tilt = randSigned(seed, 0, "tape-tilt") * 5 - 3;
   const rad = (tilt * Math.PI) / 180;
   const cos = Math.cos(rad);

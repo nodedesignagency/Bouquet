@@ -27,6 +27,8 @@ const CANVAS_WIDTH_PX = 900;
 interface Variant {
   src: string;
   anchor: [number, number];
+  size: [number, number];
+  headY: number;
   facing: string;
 }
 
@@ -115,22 +117,28 @@ function card(entry: CatalogEntry, m: Measured): string {
 
   const boxW = m.box.maxX - m.box.minX + 1;
   const boxH = m.box.maxY - m.box.minY + 1;
-  // How much of the frame the flower actually fills. Matters because the sizing
-  // rule maps realWidthMm onto the sprite, and any padding around the artwork
-  // is width the flower does not get.
+  // Should be 100%: crop-sprites trims the frame to the content so that
+  // realWidthMm lands on the flower and not on its packaging. Anything less
+  // means a sprite has been added without being cropped.
   const fill = (boxW / m.width) * 100;
-  const naiveMm = entry.realWidthMm * (boxW / m.width);
   const onScreenPx = (entry.realWidthMm / CANVAS_WIDTH_MM) * CANVAS_WIDTH_PX;
+  const onScreenH = onScreenPx * (m.height / m.width);
 
   // Where the anchor sits inside the frame, as a fraction — this, not the pixel
-  // pair, is what the renderer will use once sprites replace the circles.
+  // pair, is what the renderer uses.
   const fx = (ax / m.width).toFixed(4);
   const fy = (ay / m.height).toFixed(4);
+
+  // The distance the renderer has to work with: cut end up to the bloom.
+  const stemMm = ((ay - variant.headY) / m.width) * entry.realWidthMm;
+  const headTop = ((variant.headY / m.height) * 100).toFixed(3);
+  void boxH;
 
   return `<figure class="card">
       <div class="tile">
         <img src="public${escapeHtml(variant.src)}" alt="${escapeHtml(name)}" loading="lazy">
         <div class="box" style="left:${((m.box.minX / m.width) * 100).toFixed(3)}%;top:${((m.box.minY / m.height) * 100).toFixed(3)}%;width:${((boxW / m.width) * 100).toFixed(3)}%;height:${((boxH / m.height) * 100).toFixed(3)}%"></div>
+        <div class="hair-head" style="top:${headTop}%"></div>
         <div class="hair-h" style="top:${top}%"></div>
         <div class="hair-v" style="left:${left}%"></div>
         <div class="dot" style="left:${left}%;top:${top}%"></div>
@@ -138,11 +146,10 @@ function card(entry: CatalogEntry, m: Measured): string {
       <figcaption>
         <b>${escapeHtml(name)}</b><span class="facing">${escapeHtml(variant.facing)}</span>
         <dl>
-          <dt>anchor</dt><dd>${ax}, ${ay}</dd>
-          <dt>fraction</dt><dd>${fx}, ${fy}</dd>
-          <dt>image</dt><dd>${m.width} × ${m.height}</dd>
-          <dt>content</dt><dd>${boxW} × ${boxH}<span class="${fill < 70 ? "warn" : "fine"}"> ${fill.toFixed(0)}% of frame</span></dd>
-          <dt>drawn</dt><dd>${onScreenPx.toFixed(0)} px at ${entry.realWidthMm} mm<span class="${fill < 70 ? "warn" : "fine"}"> → flower reads ${naiveMm.toFixed(0)} mm</span></dd>
+          <dt>anchor</dt><dd>${ax}, ${ay} <span class="fine">(${fx}, ${fy})</span></dd>
+          <dt>head row</dt><dd>${variant.headY} <span class="fine">→ ${stemMm.toFixed(0)} mm of stem</span></dd>
+          <dt>image</dt><dd>${m.width} × ${m.height}<span class="${fill < 99.5 ? "warn" : "fine"}"> ${fill.toFixed(0)}% content — ${fill < 99.5 ? "needs cropping" : "cropped"}</span></dd>
+          <dt>drawn</dt><dd>${onScreenPx.toFixed(0)} × ${onScreenH.toFixed(0)} px at ${entry.realWidthMm} mm</dd>
         </dl>
       </figcaption>
     </figure>`;
@@ -219,6 +226,7 @@ function main() {
   .tile.empty span { font:11px ui-monospace,monospace; color:#d98a5a; }
   .box { position:absolute; border:1px dashed #93a98366; }
   .hair-h { position:absolute; left:0; right:0; border-top:1px dashed #d7a05a99; }
+  .hair-head { position:absolute; left:0; right:0; border-top:1px dashed #93a983aa; }
   .hair-v { position:absolute; top:0; bottom:0; border-left:1px dashed #d7a05a55; }
   .dot { position:absolute; width:15px; height:15px; margin:-8px 0 0 -8px; border:2px solid #d7a05a; border-radius:50%; }
   figcaption { padding:8px 10px 10px; }
@@ -236,7 +244,7 @@ function main() {
 <body>
 <div class="wrap">
   <h1>Sprite review</h1>
-  <p class="lede">Every catalog variant with the anchor <code>derive-anchors</code> found: the gold crosshair is the point pinned to the tie point, the sage box is the bounding box of the opaque pixels. Generated from <code>data/catalog.json</code>.</p>
+  <p class="lede">Every catalog variant with the measurements <code>derive-anchors</code> found. The gold crosshair is the anchor — the cut end of the stem, pinned to the tie point. The sage line is the middle of the bloom, which is what the renderer slides onto the spiral. Generated from <code>data/catalog.json</code>.</p>
   <p class="tally">${good}/${total} variants have artwork · generated ${new Date().toISOString().replace("T", " ").slice(0, 16)} UTC</p>
 
   <section>

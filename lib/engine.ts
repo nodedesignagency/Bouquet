@@ -69,6 +69,17 @@ const FIT_HALF_WIDTH = 0.5;
 const FIT_TOP_MARGIN = 0.03;
 
 /**
+ * How far a stem may lean out from vertical, in degrees.
+ *
+ * A placeholder circle is rotationally symmetric, so it hid this completely —
+ * the arrangement was happily rotating outer stems 70 degrees and it read as a
+ * dome. A photograph of a flower rotated 70 degrees reads as a flower lying on
+ * its side. In a real hand-tie the outermost stems lean about this far and no
+ * further.
+ */
+const MAX_LEAN_DEG = 42;
+
+/**
  * How much of its own width a sprite must keep inside the frame, by category.
  * A focal flower cut in half by the edge looks like a mistake; a sprig of
  * eucalyptus running out of frame is just how these photographs are cropped.
@@ -226,6 +237,8 @@ export interface PlacedStem {
   rotationDeg: number;
   /** Tie point to head centre, in pixels: how long the stem reads on screen. */
   axisLengthPx: number;
+  /** How far above the tie point this stem carries its head, before the spiral. */
+  risePx: number;
   /** On-screen sprite width, from real millimetres. */
   widthPx: number;
   /** On-screen width of a single bloom within the sprite. */
@@ -251,11 +264,46 @@ export function placeStems(state: BouquetState, layout: Layout): PlacedStem[] {
   // is untouched — it just breathes in. Adding a thirtieth stem tightens the
   // bouquet instead of pushing flowers off the edge of the canvas.
   const natural = layoutPass(state, layout, order, 1, 1);
-  const spiralFit = solveHorizontalFit(natural, layout);
+  const spiralFit = Math.min(
+    solveHorizontalFit(natural, layout),
+    solveLeanFit(natural, layout),
+  );
   const widened = spiralFit === 1 ? natural : layoutPass(state, layout, order, spiralFit, 1);
   const riseFit = solveVerticalFit(widened, layout);
   if (riseFit === 1) return widened;
   return layoutPass(state, layout, order, spiralFit, riseFit);
+}
+
+/**
+ * Largest uniform shrink of the spiral radius that keeps every stem's lean
+ * within `MAX_LEAN_DEG`.
+ *
+ * A stem leans by `atan(dx / rise)`, and shrinking the spiral scales both the
+ * sideways offset and the part of the vertical offset the spiral contributes,
+ * so the constraint solves directly:
+ *
+ *   |dx|·s <= tan(θ) · (rise - dy·s)   →   s <= tan(θ)·rise / (|dx| + tan(θ)·dy)
+ *
+ * Narrowing the bouquet rather than capping the angle keeps the spiral's
+ * relative spacing intact — every stem still sits where phyllotaxis put it,
+ * just closer in.
+ */
+function solveLeanFit(placed: PlacedStem[], layout: Layout): number {
+  const tan = Math.tan(MAX_LEAN_DEG * DEG);
+  let fit = 1;
+
+  for (const stem of placed) {
+    const dx = Math.abs(stem.headX - layout.tieX);
+    // Split the vertical offset back into the stem's own rise and the spiral's
+    // contribution, since only the latter shrinks with the fit.
+    const rise = stem.risePx;
+    const dy = rise - (layout.tieY - stem.headY);
+    const denominator = dx + tan * dy;
+    if (denominator <= 0) continue;
+    fit = Math.min(fit, (tan * rise) / denominator);
+  }
+
+  return Math.max(0, Math.min(1, fit));
 }
 
 /**
@@ -314,9 +362,15 @@ function layoutPass(
       Math.sqrt(n) *
       (1 + randSigned(state.seed, n, "radius") * RADIUS_JITTER);
 
-    // How far above the tie point this stem carries its head. Longer-stemmed
-    // flowers stand taller; outer rings sit lower, which domes the mass.
-    const risePx = item.stemLengthMm * layout.mmToPx * scale * riseFit;
+    // How far above the tie point this stem carries its head.
+    //
+    // Deliberately NOT scaled by the ring. In a spiral hand-tie every stem is
+    // the same length from the bind, so an outer flower sits lower because it
+    // leans out, not because it is shorter. Shrinking the rise as well as the
+    // sprite made outer stems both small and steep, which compounded into
+    // flowers lying on their sides. The ring scale governs size, as the brief
+    // says, and nothing else.
+    const risePx = item.stemLengthMm * layout.mmToPx * riseFit;
 
     const angleRad = angleDeg * DEG;
     const dx = Math.sin(angleRad) * radiusPx;
@@ -349,6 +403,7 @@ function layoutPass(
       headY,
       rotationDeg,
       axisLengthPx,
+      risePx,
       widthPx: spriteWidthPx(item.realWidthMm, layout.width, scale),
       bloomPx: spriteWidthPx(item.bloomWidthMm, layout.width, scale),
       layer: layerFor(item, state.seed, n),
