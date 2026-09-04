@@ -20,6 +20,7 @@ import {
   type BouquetState,
   type LayerName,
 } from "@/lib/types";
+import { buildWrap, type WrapShape } from "@/lib/wrap";
 import { StemSprite } from "./StemSprite";
 
 const STEM_WIDTH_MM = 6;
@@ -40,10 +41,15 @@ interface Props {
  * sprite.
  */
 export function BouquetCanvas({ state, className, showGuides = false }: Props) {
-  const { layout, placed, byLayer } = useMemo(() => {
+  const { layout, placed, byLayer, wrap } = useMemo(() => {
     const nextLayout = computeLayout(CANVAS_WIDTH, CANVAS_HEIGHT, state);
     const nextPlaced = placeStems(state, nextLayout);
-    return { layout: nextLayout, placed: nextPlaced, byLayer: groupByLayer(nextPlaced) };
+    return {
+      layout: nextLayout,
+      placed: nextPlaced,
+      byLayer: groupByLayer(nextPlaced),
+      wrap: buildWrap(state, nextLayout, nextPlaced),
+    };
   }, [state]);
 
   return (
@@ -68,6 +74,27 @@ export function BouquetCanvas({ state, className, showGuides = false }: Props) {
           </feComponentTransfer>
           <feGaussianBlur stdDeviation={BACK_BLUR_PX} />
         </filter>
+
+        {wrap.gradients.map((gradient) => (
+          <linearGradient
+            key={gradient.id}
+            id={gradient.id}
+            gradientUnits="userSpaceOnUse"
+            x1={gradient.x1}
+            y1={gradient.y1}
+            x2={gradient.x2}
+            y2={gradient.y2}
+          >
+            {gradient.stops.map((stop) => (
+              <stop
+                key={stop.offset}
+                offset={stop.offset}
+                stopColor={stop.color}
+                stopOpacity={stop.opacity}
+              />
+            ))}
+          </linearGradient>
+        ))}
       </defs>
 
       {LAYER_ORDER.map((layer) => (
@@ -76,7 +103,7 @@ export function BouquetCanvas({ state, className, showGuides = false }: Props) {
           data-layer={layer}
           filter={BACK_LAYERS.has(layer) ? "url(#depth-back)" : undefined}
         >
-          {renderLayer(layer, byLayer.get(layer) ?? [], placed, state, layout)}
+          {renderLayer(layer, byLayer.get(layer) ?? [], placed, state, layout, wrap)}
         </g>
       ))}
 
@@ -91,6 +118,7 @@ function renderLayer(
   allStems: PlacedStem[],
   state: BouquetState,
   layout: Layout,
+  wrap: ReturnType<typeof buildWrap>,
 ) {
   switch (layer) {
     case "greens":
@@ -101,11 +129,46 @@ function renderLayer(
         <StemSprite key={placed.key} placed={placed} layout={layout} seed={state.seed} />
       ));
     case "stem-bundle":
-      return <StemBundle placed={allStems} state={state} layout={layout} />;
+      return (
+        <StemBundle
+          placed={allStems}
+          state={state}
+          layout={layout}
+          cutOffY={wrap.baseBottomY}
+        />
+      );
+    case "wrap-back":
+      return <Shapes shapes={wrap.back} />;
+    case "wrap-front":
+      return <Shapes shapes={wrap.front} />;
+    case "tape":
+      return <Shapes shapes={wrap.tape} />;
+    case "ribbon":
+      return <Shapes shapes={wrap.ribbon} />;
     default:
-      // wrap-back, wrap-front, tape and ribbon arrive in step 3.
       return null;
   }
+}
+
+/** Paints a list of shapes the wrap module worked out. */
+function Shapes({ shapes }: { shapes: WrapShape[] }) {
+  return (
+    <>
+      {shapes.map((shape, i) => (
+        <path
+          key={i}
+          d={shape.d}
+          fill={shape.fill}
+          opacity={shape.opacity}
+          stroke={shape.stroke}
+          strokeWidth={shape.strokeWidth}
+          strokeDasharray={shape.strokeDasharray}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+        />
+      ))}
+    </>
+  );
 }
 
 /**
@@ -119,20 +182,30 @@ export function StemBundle({
   placed,
   state,
   layout,
+  cutOffY,
 }: {
   placed: PlacedStem[];
   state: BouquetState;
   layout: Layout;
+  /** Where the wrap ends. Stems stop short of it rather than poking through. */
+  cutOffY: number | null;
 }) {
   if (placed.length === 0) return null;
 
-  const dropPx = (layout.height - layout.tieY) * 0.92;
+  const wrapped = cutOffY !== null;
+  const available = wrapped
+    ? (cutOffY - layout.tieY) * 0.88
+    : (layout.height - layout.tieY) * 0.92;
+  const dropPx = Math.max(0, available);
+  // Wrapped stems are held together by the paper; bare ones are free to fan.
+  const spread = wrapped ? 0.3 : 1;
 
   return (
     <g data-part="stem-bundle">
       {placed.map((stem) => {
         const width = spriteWidthPx(STEM_WIDTH_MM, layout.width, stem.scale);
-        const lean = -stem.rotationDeg * 0.32 + randSigned(state.seed, stem.n, "bundle") * 6;
+        const lean =
+          (-stem.rotationDeg * 0.32 + randSigned(state.seed, stem.n, "bundle") * 6) * spread;
         const length = dropPx * (0.82 + rand(state.seed, stem.n, "bundle-length") * 0.18);
         return (
           <line

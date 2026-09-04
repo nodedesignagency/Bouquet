@@ -14,6 +14,7 @@ import type { BouquetState } from "@/lib/types";
 import { CatalogPanel } from "./CatalogPanel";
 import { SeedBar } from "./SeedBar";
 import { Stage } from "./Stage";
+import { WrapPanel } from "./WrapPanel";
 import { StemList } from "./StemList";
 
 export function Builder() {
@@ -51,6 +52,10 @@ export function Builder() {
             state={state}
             onAdd={(itemId) => setState((prev) => addStem(prev, itemId))}
             onRemove={(itemId) => setState((prev) => removeStemOfItem(prev, itemId))}
+          />
+          <WrapPanel
+            state={state}
+            onChange={(patch) => setState((prev) => ({ ...prev, ...patch }))}
           />
           <StemList
             state={state}
