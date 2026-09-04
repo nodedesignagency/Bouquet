@@ -9,7 +9,9 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "derive-anchors": "tsx scripts/derive-anchors.ts",
-    "verify:engine": "tsx scripts/verify-engine.ts"
+    "verify:engine": "tsx scripts/verify-engine.ts",
+    "verify:anchors": "tsx scripts/verify-anchors.ts",
+    "verify": "npm run verify:engine && npm run verify:anchors"
   },
   "dependencies": {
     "next": "^14.2.35",
