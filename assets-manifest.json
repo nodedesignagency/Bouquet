@@ -2,7 +2,7 @@
   "generatedAt": "2026-09-04T12:55:00Z",
   "source": "Magnific",
   "pipeline": "text-to-image -> images_remove_background -> saved as transparent PNG",
-  "note": "Cutouts are 1248x1872; the text-to-image sources were 1664x2496. Background removal downscaled by 0.75.",
+  "note": "Cutouts are 1248x1872; the text-to-image sources were 1664x2496. Background removal downscaled by 0.75. Files delivered as -3q were renamed to -three-quarter to match the catalog's variant naming.",
   "assets": [
     {
       "file": "public/assets/rose-red-front.png",
@@ -12,7 +12,7 @@
       "originalWebUrl": "https://www.magnific.com/app/creation/1lyjA2jr4r"
     },
     {
-      "file": "public/assets/rose-red-3q.png",
+      "file": "public/assets/rose-red-three-quarter.png",
       "originalCreation": "SyR7MYRUb8",
       "cutoutCreation": "P3YN5c042C",
       "cutoutWebUrl": "https://www.magnific.com/app/creation/P3YN5c042C",
@@ -40,7 +40,7 @@
       "originalWebUrl": "https://www.magnific.com/app/creation/N203vEM6D9"
     },
     {
-      "file": "public/assets/lily-white-3q.png",
+      "file": "public/assets/lily-white-three-quarter.png",
       "originalCreation": "MBaej9cDCm",
       "cutoutCreation": "UPZJQF4wny",
       "cutoutWebUrl": "https://www.magnific.com/app/creation/UPZJQF4wny",
@@ -68,7 +68,7 @@
       "originalWebUrl": "https://www.magnific.com/app/creation/LwNgM4DswO"
     },
     {
-      "file": "public/assets/carnation-pink-3q.png",
+      "file": "public/assets/carnation-pink-three-quarter.png",
       "originalCreation": "DofdsHFpcl",
       "cutoutCreation": "lJiUEtygv9",
       "cutoutWebUrl": "https://www.magnific.com/app/creation/lJiUEtygv9",
@@ -96,7 +96,7 @@
       "originalWebUrl": "https://www.magnific.com/app/creation/fHxu6MiCDY"
     },
     {
-      "file": "public/assets/sunflower-3q.png",
+      "file": "public/assets/sunflower-three-quarter.png",
       "originalCreation": "SyR7drEUb8",
       "cutoutCreation": "MBaeiljDCm",
       "cutoutWebUrl": "https://www.magnific.com/app/creation/MBaeiljDCm",
@@ -110,7 +110,7 @@
       "originalWebUrl": "https://www.magnific.com/app/creation/LwNgDgGswO"
     },
     {
-      "file": "public/assets/sunflower-small-3q.png",
+      "file": "public/assets/sunflower-small-three-quarter.png",
       "originalCreation": "SyR7XiJUb8",
       "cutoutCreation": "s76SEsPl8e",
       "cutoutWebUrl": "https://www.magnific.com/app/creation/s76SEsPl8e",

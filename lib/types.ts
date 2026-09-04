@@ -11,8 +11,12 @@
 /** Which render layer a catalog item belongs to. */
 export type StemCategory = "focal" | "filler" | "green";
 
-/** Which way the sprite faces. Used to pick a variant when swapping in PNGs. */
-export type Facing = "front" | "3q" | "side";
+/**
+ * Which way the sprite faces. `bud` is an unopened flower rather than an angle,
+ * but it lives on the same axis: it is one of the poses a stem can be drawn in,
+ * and the engine picks between them the same way.
+ */
+export type Facing = "front" | "3q" | "side" | "bud";
 
 export interface CatalogVariant {
   /** Path under /public. Unused until step 5 — the engine renders circles today. */

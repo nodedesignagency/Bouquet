@@ -77,9 +77,14 @@ const placed = placeStems(a, layout);
 check("tie point is 50% x, 72% y", layout.tieX === CANVAS_WIDTH * 0.5 && layout.tieY === CANVAS_HEIGHT * 0.72);
 check("ring 0 holds the first stem only", ringForIndex(0) === 0 && ringForIndex(1) === 1 && ringForIndex(4) === 2);
 check("scale drops 12% per ring", Math.abs(scaleForRing(2) - 0.7744) < 1e-9);
+// Focals take the middle, filler sits around them, greens land outside. Stated
+// as the ordering invariant rather than "the last stem is not a focal", so it
+// still means something for a catalog that is all one category.
+const RANK = { focal: 0, filler: 1, green: 2 } as const;
 check(
-  "focals take the middle of the spiral",
-  placed[0]?.item.category === "focal" && placed[placed.length - 1]?.item.category !== "focal",
+  "placement runs focal, then filler, then greens",
+  placed.every((s, i) => i === 0 || RANK[placed[i - 1].item.category] <= RANK[s.item.category]),
+  placed.map((s) => s.item.category).join(" "),
 );
 check(
   "every head sits above the tie point",

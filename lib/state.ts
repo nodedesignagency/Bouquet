@@ -106,10 +106,10 @@ export function cycleVariant(state: BouquetState, stemIndex: number): BouquetSta
  */
 export function starterBouquet(): BouquetState {
   const recipe: Array<[string, number]> = [
-    ["lily-pink", 3],
-    ["rose-pink", 5],
-    ["babys-breath", 4],
-    ["eucalyptus", 3],
+    ["lily-white", 3],
+    ["rose-red", 5],
+    ["carnation-pink", 4],
+    ["sunflower-small", 1],
   ];
   let state = DEFAULT_STATE;
   for (const [itemId, count] of recipe) {

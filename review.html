@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Sprite review — Bouquet</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:#141110; color:#f2ebe4; font:14px/1.5 ui-sans-serif,system-ui,sans-serif; }
+  .wrap { max-width:1500px; margin:0 auto; padding:32px 24px 80px; }
+  h1 { font:600 30px/1.2 Georgia,serif; margin:0 0 6px; }
+  .lede { color:#a2948a; margin:0 0 28px; max-width:62ch; }
+  .tally { font-family:ui-monospace,monospace; font-size:12px; color:#93a983; }
+  section { margin:34px 0 0; border-top:1px solid #2c2521; padding-top:16px; }
+  .item { display:flex; flex-wrap:wrap; align-items:baseline; gap:18px; margin-bottom:14px; }
+  h2 { font:600 19px/1 Georgia,serif; margin:0; }
+  dl { margin:0; display:flex; flex-wrap:wrap; gap:2px 10px; font-family:ui-monospace,monospace; font-size:11px; }
+  dl dt { color:#6b5f56; }
+  dl dd { margin:0 8px 0 0; color:#d8cdc3; }
+  .specs dd { color:#93a983; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(215px,1fr)); gap:12px; }
+  .card { margin:0; border:1px solid #2c2521; border-radius:8px; overflow:hidden; background:#1b1715; }
+  .card.missing { border-color:#5d3a2a; }
+  .tile { position:relative; line-height:0;
+    background-color:#2b2b2b;
+    background-image:linear-gradient(45deg,#3a3a3a 25%,transparent 25%),linear-gradient(-45deg,#3a3a3a 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#3a3a3a 75%),linear-gradient(-45deg,transparent 75%,#3a3a3a 75%);
+    background-size:14px 14px; background-position:0 0,0 7px,7px -7px,-7px 0; }
+  .tile img { width:100%; display:block; }
+  .tile.empty { display:flex; align-items:center; justify-content:center; aspect-ratio:2/3; }
+  .tile.empty span { font:11px ui-monospace,monospace; color:#d98a5a; }
+  .box { position:absolute; border:1px dashed #93a98366; }
+  .hair-h { position:absolute; left:0; right:0; border-top:1px dashed #d7a05a99; }
+  .hair-v { position:absolute; top:0; bottom:0; border-left:1px dashed #d7a05a55; }
+  .dot { position:absolute; width:15px; height:15px; margin:-8px 0 0 -8px; border:2px solid #d7a05a; border-radius:50%; }
+  figcaption { padding:8px 10px 10px; }
+  figcaption b { font-weight:500; font-size:12px; }
+  .facing { font:10px ui-monospace,monospace; color:#141110; background:#93a983; border-radius:3px; padding:1px 5px; margin-left:6px; vertical-align:1px; }
+  figcaption dl { margin-top:7px; display:grid; grid-template-columns:auto 1fr; gap:1px 8px; }
+  .warn { color:#d98a5a; }
+  .fine { color:#6b5f56; }
+  .scale { display:flex; align-items:flex-end; gap:14px; margin:10px 0 0; }
+  .scale-item { text-align:center; }
+  .scale-item img { width:100%; display:block; }
+  .scale-item span { font:10px ui-monospace,monospace; color:#a2948a; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Sprite review</h1>
+  <p class="lede">Every catalog variant with the anchor <code>derive-anchors</code> found: the gold crosshair is the point pinned to the tie point, the sage box is the bounding box of the opaque pixels. Generated from <code>data/catalog.json</code>.</p>
+  <p class="tally">16/16 variants have artwork · generated 2026-09-04 13:04 UTC</p>
+
+  <section>
+    <header class="item"><h2>To scale</h2><dl class="specs"><dt>canvas</dt><dd>400 mm across</dd></dl></header>
+    <div class="scale"><div class="scale-item" style="width:41.67%">
+        <img src="public/assets/rose-red-front.png" alt="" loading="lazy">
+        <span>Red Rose<br>75 mm</span>
+      </div><div class="scale-item" style="width:83.33%">
+        <img src="public/assets/lily-white-front.png" alt="" loading="lazy">
+        <span>White Lily<br>150 mm</span>
+      </div><div class="scale-item" style="width:36.11%">
+        <img src="public/assets/carnation-pink-front.png" alt="" loading="lazy">
+        <span>Pink Carnation<br>65 mm</span>
+      </div><div class="scale-item" style="width:100.00%">
+        <img src="public/assets/sunflower-front.png" alt="" loading="lazy">
+        <span>Sunflower<br>180 mm</span>
+      </div><div class="scale-item" style="width:66.67%">
+        <img src="public/assets/sunflower-small-three-quarter.png" alt="" loading="lazy">
+        <span>Small Sunflower<br>120 mm</span>
+      </div></div>
+  </section>
+
+  <section>
+      <header class="item">
+        <h2>Red Rose</h2>
+        <dl class="specs">
+          <dt>id</dt><dd>rose-red</dd>
+          <dt>width</dt><dd>75 mm</dd>
+          <dt>bloom</dt><dd>75 mm</dd>
+          <dt>stem</dt><dd>130 mm visible</dd>
+          <dt>price</dt><dd>₹45</dd>
+        </dl>
+      </header>
+      <div class="grid"><figure class="card">
+      <div class="tile">
+        <img src="public/assets/rose-red-front.png" alt="rose-red-front.png" loading="lazy">
+        <div class="box" style="left:29.968%;top:21.635%;width:43.429%;height:71.314%"></div>
+        <div class="hair-h" style="top:92.895%"></div>
+        <div class="hair-v" style="left:50.561%"></div>
+        <div class="dot" style="left:50.561%;top:92.895%"></div>
+      </div>
+      <figcaption>
+        <b>rose-red-front.png</b><span class="facing">front</span>
+        <dl>
+          <dt>anchor</dt><dd>631, 1739</dd>
+          <dt>fraction</dt><dd>0.5056, 0.9290</dd>
+          <dt>image</dt><dd>1248 × 1872</dd>
+          <dt>content</dt><dd>542 × 1335<span class="warn"> 43% of frame</span></dd>
+          <dt>drawn</dt><dd>169 px at 75 mm<span class="warn"> → flower reads 33 mm</span></dd>
+        </dl>
+      </figcaption>
+    </figure><figure class="card">
+      <div class="tile">
+        <img src="public/assets/rose-red-three-quarter.png" alt="rose-red-three-quarter.png" loading="lazy">
+        <div class="box" style="left:29.968%;top:21.688%;width:43.510%;height:71.207%"></div>
+        <div class="hair-h" style="top:92.842%"></div>
+        <div class="hair-v" style="left:49.920%"></div>
+        <div class="dot" style="left:49.920%;top:92.842%"></div>
+      </div>
+      <figcaption>
+        <b>rose-red-three-quarter.png</b><span class="facing">3q</span>
+        <dl>
+          <dt>anchor</dt><dd>623, 1738</dd>
+          <dt>fraction</dt><dd>0.4992, 0.9284</dd>
+          <dt>image</dt><dd>1248 × 1872</dd>
+          <dt>content</dt><dd>543 × 1333<span class="warn"> 44% of frame</span></dd>
+          <dt>drawn</dt><dd>169 px at 75 mm<span class="warn"> → flower reads 33 mm</span></dd>
+        </dl>
+      </figcaption>
+    </figure><figure class="card">
+      <div class="tile">
+        <img src="public/assets/rose-red-side.png" alt="rose-red-side.png" loading="lazy">
+        <div class="box" style="left:34.054%;top:21.207%;width:43.590%;height:71.955%"></div>
+        <div class="hair-h" style="top:93.109%"></div>
+        <div class="hair-v" style="left:49.599%"></div>
+        <div class="dot" style="left:49.599%;top:93.109%"></div>
+      </div>
+      <figcaption>
+        <b>rose-red-side.png</b><span class="facing">side</span>
+        <dl>
+          <dt>anchor</dt><dd>619, 1743</dd>
+          <dt>fraction</dt><dd>0.4960, 0.9311</dd>
+          <dt>image</dt><dd>1248 × 1872</dd>
+          <dt>content</dt><dd>544 × 1347<span class="warn"> 44% of frame</span></dd>
+          <dt>drawn</dt><dd>169 px at 75 mm<span class="warn"> → flower reads 33 mm</span></dd>
+        </dl>
+      </figcaption>
+    </figure><figure class="card">
+      <div class="tile">
+        <img src="public/assets/rose-red-bud.png" alt="rose-red-bud.png" loading="lazy">
+        <div class="box" style="left:33.734%;top:22.329%;width:34.054%;height:70.192%"></div>
+        <div class="hair-h" style="top:92.468%"></div>
+        <div class="hair-v" style="left:50.561%"></div>
+        <div class="dot" style="left:50.561%;top:92.468%"></div>
+      </div>
+      <figcaption>
+        <b>rose-red-bud.png</b><span class="facing">bud</span>
+        <dl>
+          <dt>anchor</dt><dd>631, 1731</dd>
+          <dt>fraction</dt><dd>0.5056, 0.9247</dd>
+          <dt>image</dt><dd>1248 × 1872</dd>
+          <dt>content</dt><dd>425 × 1314<span class="warn"> 34% of frame</span></dd>
+          <dt>drawn</dt><dd>169 px at 75 mm<span class="warn"> → flower reads 26 mm</span></dd>
+        </dl>
+      </figcaption>
+    </figure></div>
+    </section><section>
+      <header class="item">
+        <h2>White Lily</h2>
+        <dl class="specs">
+          <dt>id</dt><dd>lily-white</dd>
+          <dt>width</dt><dd>150 mm</dd>
+          <dt>bloom</dt><dd>150 mm</dd>
+          <dt>stem</dt><dd>150 mm visible</dd>
+          <dt>price</dt><dd>₹90</dd>
+        </dl>
+      </header>
+      <div class="grid"><figure class="card">
+      <div class="tile">
+        <img src="public/assets/lily-white-front.png" alt="lily-white-front.png" loading="lazy">
+        <div class="box" style="left:11.538%;top:11.432%;width:78.846%;height:80.716%"></div>
+        <div class="hair-h" style="top:92.094%"></div>
+        <div class="hair-v" style="left:52.804%"></div>
+        <div class="dot" style="left:52.804%;top:92.094%"></div>
+      </div>
+      <figcaption>
+        <b>lily-white-front.png</b><span class="facing">front</span>
+        <dl>
+          <dt>anchor</dt><dd>659, 1724</dd>
+          <dt>fraction</dt><dd>0.5280, 0.9209</dd>
+          <dt>image</dt><dd>1248 × 1872</dd>
+          <dt>content</dt><dd>984 × 1511<span class="fine"> 79% of frame</span></dd>
+          <dt>drawn</dt><dd>338 px at 150 mm<span class="fine"> → flower reads 118 mm</span></dd>
+        </dl>
+      </figcaption>
+    </figure><figure class="card">
+      <div class="tile">
+        <img src="public/assets/lily-white-three-quarter.png" alt="lily-white-three-quarter.png" loading="lazy">
+        <div class="box" style="left:14.423%;top:18.216%;width:74.439%;height:68.269%"></div>
+        <div class="hair-h" style="top:86.432%"></div>
+        <div class="hair-v" style="left:47.436%"></div>
+        <div class="dot" style="left:47.436%;top:86.432%"></div>
+      </div>
+      <figcaption>
+        <b>lily-white-three-quarter.png</b><span class="facing">3q</span>
+        <dl>
+          <dt>anchor</dt><dd>592, 1618</dd>
+          <dt>fraction</dt><dd>0.4744, 0.8643</dd>
+          <dt>image</dt><dd>1248 × 1872</dd>
+          <dt>content</dt><dd>929 × 1278<span class="fine"> 74% of frame</span></dd>
+          <dt>drawn</dt><dd>338 px at 150 mm<span class="fine"> → flower reads 112 mm</span></dd>
+        </dl>
+      </figcaption>
+    </figure><figure class="card">
+      <div class="tile">
+        <img src="public/assets/lily-white-side.png" alt="lily-white-side.png" loading="lazy">
+        <div class="box" style="left:14.022%;top:14.370%;width:67.067%;height:76.603%"></div>
+        <div class="hair-h" style="top:90.919%"></div>
+        <div class="hair-v" style="left:43.189%"></div>
+        <div class="dot" style="left:43.189%;top:90.919%"></div>
+      </div>
+      <figcaption>
+        <b>lily-white-side.png</b><span class="facing">side</span>
+        <dl>
+          <dt>anchor</dt><dd>539, 1702</dd>
+          <dt>fraction</dt><dd>0.4319, 0.9092</dd>
+          <dt>image</dt><dd>1248 × 1872</dd>
+          <dt>content</dt><dd>837 × 1434<span class="warn"> 67% of frame</span></dd>
+          <dt>drawn</dt><dd>338 px at 150 mm<span class="warn"> → flower reads 101 mm</span></dd>
+        </dl>
+      </figcaption>
+    </figure><figure class="card">
+      <div class="tile">
+        <img src="public/assets/lily-white-bud.png" alt="lily-white-bud.png" loading="lazy">
+        <div class="box" style="left:15.545%;top:12.500%;width:66.827%;height:77.457%"></div>
+        <div class="hair-h" style="top:89.904%"></div>
+        <div class="hair-v" style="left:49.679%"></div>
+        <div class="dot" style="left:49.679%;top:89.904%"></div>
+      </div>
+      <figcaption>
+        <b>lily-white-bud.png</b><span class="facing">bud</span>
+        <dl>
+          <dt>anchor</dt><dd>620, 1683</dd>
+          <dt>fraction</dt><dd>0.4968, 0.8990</dd>
+          <dt>image</dt><dd>1248 × 1872</dd>
+          <dt>content</dt><dd>834 × 1450<span class="warn"> 67% of frame</span></dd>
+          <dt>drawn</dt><dd>338 px at 150 mm<span class="warn"> → flower reads 100 mm</span></dd>
+        </dl>
+      </figcaption>
+    </figure></div>
+    </section><section>
+      <header class="item">
+        <h2>Pink Carnation</h2>
+        <dl class="specs">
+          <dt>id</dt><dd>carnation-pink</dd>
+          <dt>width</dt><dd>65 mm</dd>
+          <dt>bloom</dt><dd>65 mm</dd>
+          <dt>stem</dt><dd>115 mm visible</dd>
+          <dt>price</dt><dd>₹30</dd>
+        </dl>
+      </header>
+      <div class="grid"><figure class="card">
+      <div class="tile">
+        <img src="public/assets/carnation-pink-front.png" alt="carnation-pink-front.png" loading="lazy">
+        <div class="box" style="left:21.955%;top:13.889%;width:56.971%;height:78.472%"></div>
+        <div class="hair-h" style="top:92.308%"></div>
+        <div class="hair-v" style="left:52.324%"></div>
+        <div class="dot" style="left:52.324%;top:92.308%"></div>
+      </div>
+      <figcaption>
+        <b>carnation-pink-front.png</b><span class="facing">front</span>
+        <dl>
+          <dt>anchor</dt><dd>653, 1728</dd>
+          <dt>fraction</dt><dd>0.5232, 0.9231</dd>
+          <dt>image</dt><dd>1248 × 1872</dd>
+          <dt>content</dt><dd>711 × 1469<span class="warn"> 57% of frame</span></dd>
+          <dt>drawn</dt><dd>146 px at 65 mm<span class="warn"> → flower reads 37 mm</span></dd>
+        </dl>
+      </figcaption>
+    </figure><figure class="card">
+      <div class="tile">
+        <img src="public/assets/carnation-pink-three-quarter.png" alt="carnation-pink-three-quarter.png" loading="lazy">
+        <div class="box" style="left:31.651%;top:13.835%;width:44.872%;height:75.214%"></div>
+        <div class="hair-h" style="top:88.996%"></div>
+        <div class="hair-v" style="left:42.388%"></div>
+        <div class="dot" style="left:42.388%;top:88.996%"></div>
+      </div>
+      <figcaption>
+        <b>carnation-pink-three-quarter.png</b><span class="facing">3q</span>
+        <dl>
+          <dt>anchor</dt><dd>529, 1666</dd>
+          <dt>fraction</dt><dd>0.4239, 0.8900</dd>
+          <dt>image</dt><dd>1248 × 1872</dd>
+          <dt>content</dt><dd>560 × 1408<span class="warn"> 45% of frame</span></dd>
+          <dt>drawn</dt><dd>146 px at 65 mm<span class="warn"> → flower reads 29 mm</span></dd>
+        </dl>
+      </figcaption>
+    </figure><figure class="card">
+      <div class="tile">
+        <img src="public/assets/carnation-pink-side.png" alt="carnation-pink-side.png" loading="lazy">
+        <div class="box" style="left:32.452%;top:21.261%;width:41.426%;height:68.269%"></div>
+        <div class="hair-h" style="top:89.476%"></div>
+        <div class="hair-v" style="left:51.282%"></div>
+        <div class="dot" style="left:51.282%;top:89.476%"></div>
+      </div>
+      <figcaption>
+        <b>carnation-pink-side.png</b><span class="facing">side</span>
+        <dl>
+          <dt>anchor</dt><dd>640, 1675</dd>
+          <dt>fraction</dt><dd>0.5128, 0.8948</dd>
+          <dt>image</dt><dd>1248 × 1872</dd>
+          <dt>content</dt><dd>517 × 1278<span class="warn"> 41% of frame</span></dd>
+          <dt>drawn</dt><dd>146 px at 65 mm<span class="warn"> → flower reads 27 mm</span></dd>
+        </dl>
+      </figcaption>
+    </figure><figure class="card">
+      <div class="tile">
+        <img src="public/assets/carnation-pink-bud.png" alt="carnation-pink-bud.png" loading="lazy">
+        <div class="box" style="left:30.369%;top:16.453%;width:32.692%;height:75.321%"></div>
+        <div class="hair-h" style="top:91.720%"></div>
+        <div class="hair-v" style="left:48.157%"></div>
+        <div class="dot" style="left:48.157%;top:91.720%"></div>
+      </div>
+      <figcaption>
+        <b>carnation-pink-bud.png</b><span class="facing">bud</span>
+        <dl>
+          <dt>anchor</dt><dd>601, 1717</dd>
+          <dt>fraction</dt><dd>0.4816, 0.9172</dd>
+          <dt>image</dt><dd>1248 × 1872</dd>
+          <dt>content</dt><dd>408 × 1410<span class="warn"> 33% of frame</span></dd>
+          <dt>drawn</dt><dd>146 px at 65 mm<span class="warn"> → flower reads 21 mm</span></dd>
+        </dl>
+      </figcaption>
+    </figure></div>
+    </section><section>
+      <header class="item">
+        <h2>Sunflower</h2>
+        <dl class="specs">
+          <dt>id</dt><dd>sunflower</dd>
+          <dt>width</dt><dd>180 mm</dd>
+          <dt>bloom</dt><dd>180 mm</dd>
+          <dt>stem</dt><dd>165 mm visible</dd>
+          <dt>price</dt><dd>₹65</dd>
+        </dl>
+      </header>
+      <div class="grid"><figure class="card">
+      <div class="tile">
+        <img src="public/assets/sunflower-front.png" alt="sunflower-front.png" loading="lazy">
+        <div class="box" style="left:18.750%;top:15.385%;width:62.099%;height:72.382%"></div>
+        <div class="hair-h" style="top:87.714%"></div>
+        <div class="hair-v" style="left:50.881%"></div>
+        <div class="dot" style="left:50.881%;top:87.714%"></div>
+      </div>
+      <figcaption>
+        <b>sunflower-front.png</b><span class="facing">front</span>
+        <dl>
+          <dt>anchor</dt><dd>635, 1642</dd>
+          <dt>fraction</dt><dd>0.5088, 0.8771</dd>
+          <dt>image</dt><dd>1248 × 1872</dd>
+          <dt>content</dt><dd>775 × 1355<span class="warn"> 62% of frame</span></dd>
+          <dt>drawn</dt><dd>405 px at 180 mm<span class="warn"> → flower reads 112 mm</span></dd>
+        </dl>
+      </figcaption>
+    </figure><figure class="card">
+      <div class="tile">
+        <img src="public/assets/sunflower-three-quarter.png" alt="sunflower-three-quarter.png" loading="lazy">
+        <div class="box" style="left:17.228%;top:18.750%;width:61.058%;height:67.735%"></div>
+        <div class="hair-h" style="top:86.432%"></div>
+        <div class="hair-v" style="left:49.199%"></div>
+        <div class="dot" style="left:49.199%;top:86.432%"></div>
+      </div>
+      <figcaption>
+        <b>sunflower-three-quarter.png</b><span class="facing">3q</span>
+        <dl>
+          <dt>anchor</dt><dd>614, 1618</dd>
+          <dt>fraction</dt><dd>0.4920, 0.8643</dd>
+          <dt>image</dt><dd>1248 × 1872</dd>
+          <dt>content</dt><dd>762 × 1268<span class="warn"> 61% of frame</span></dd>
+          <dt>drawn</dt><dd>405 px at 180 mm<span class="warn"> → flower reads 110 mm</span></dd>
+        </dl>
+      </figcaption>
+    </figure><figure class="card">
+      <div class="tile">
+        <img src="public/assets/sunflower-side.png" alt="sunflower-side.png" loading="lazy">
+        <div class="box" style="left:13.301%;top:11.378%;width:72.115%;height:80.021%"></div>
+        <div class="hair-h" style="top:91.346%"></div>
+        <div class="hair-v" style="left:41.827%"></div>
+        <div class="dot" style="left:41.827%;top:91.346%"></div>
+      </div>
+      <figcaption>
+        <b>sunflower-side.png</b><span class="facing">side</span>
+        <dl>
+          <dt>anchor</dt><dd>522, 1710</dd>
+          <dt>fraction</dt><dd>0.4183, 0.9135</dd>
+          <dt>image</dt><dd>1248 × 1872</dd>
+          <dt>content</dt><dd>900 × 1498<span class="fine"> 72% of frame</span></dd>
+          <dt>drawn</dt><dd>405 px at 180 mm<span class="fine"> → flower reads 130 mm</span></dd>
+        </dl>
+      </figcaption>
+    </figure></div>
+    </section><section>
+      <header class="item">
+        <h2>Small Sunflower</h2>
+        <dl class="specs">
+          <dt>id</dt><dd>sunflower-small</dd>
+          <dt>width</dt><dd>120 mm</dd>
+          <dt>bloom</dt><dd>120 mm</dd>
+          <dt>stem</dt><dd>150 mm visible</dd>
+          <dt>price</dt><dd>₹45</dd>
+        </dl>
+      </header>
+      <div class="grid"><figure class="card">
+      <div class="tile">
+        <img src="public/assets/sunflower-small-three-quarter.png" alt="sunflower-small-three-quarter.png" loading="lazy">
+        <div class="box" style="left:17.869%;top:13.141%;width:67.228%;height:77.938%"></div>
+        <div class="hair-h" style="top:91.026%"></div>
+        <div class="hair-v" style="left:52.644%"></div>
+        <div class="dot" style="left:52.644%;top:91.026%"></div>
+      </div>
+      <figcaption>
+        <b>sunflower-small-three-quarter.png</b><span class="facing">3q</span>
+        <dl>
+          <dt>anchor</dt><dd>657, 1704</dd>
+          <dt>fraction</dt><dd>0.5264, 0.9103</dd>
+          <dt>image</dt><dd>1248 × 1872</dd>
+          <dt>content</dt><dd>839 × 1459<span class="warn"> 67% of frame</span></dd>
+          <dt>drawn</dt><dd>270 px at 120 mm<span class="warn"> → flower reads 81 mm</span></dd>
+        </dl>
+      </figcaption>
+    </figure></div>
+    </section>
+</div>
+</body>
+</html>

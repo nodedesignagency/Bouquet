@@ -1,24 +1,35 @@
 # Sprites
 
-Empty on purpose. Step 5 of the build order is the only step that puts images
-here, and it has not been done — the renderer draws placeholder circles sized
-from real millimetres instead.
+Sixteen transparent PNGs: red rose, white lily and pink carnation in four poses
+each (front, three-quarter, side, bud), plus sunflower in three and a smaller
+sunflower in one. Generated with Magnific and background-removed; see
+`assets-manifest.json` at the repo root to trace any file back to the creation
+it came from.
 
-## When the artwork arrives
+All are 1248 × 1872, RGBA. Filenames match the `src` of a catalog variant
+exactly — that is how `derive-anchors` pairs a file to the entry it belongs to.
 
-1. Export one PNG per catalog variant, transparent background, non-interlaced.
-2. Name each file exactly as the catalog's `src` says, minus the `/assets/`
-   prefix — `rose-red-front.png`, `rose-red-three-quarter.png`, and so on. Run
-   `npm run derive-anchors -- --dry-run` to list every variant still waiting on
-   a file.
-3. Draw each flower **upright, head up, stem running down to the bottom edge**,
-   with the cut end of the stem the lowest opaque thing in the image. That point
-   is what gets pinned to the tie point.
-4. Run `npm run derive-anchors`. It finds the lowest opaque row in each PNG,
-   takes the alpha-weighted horizontal centroid of that row, and writes the
-   anchor into `data/catalog.json`.
+## After changing or adding a sprite
 
-Resolution is yours to choose and does not affect layout: every sprite is drawn
-at `(realWidthMm / 400) * canvasWidth * scale` pixels wide, so a 2048px rose and
-a 512px rose render identically. Keep them large enough for a 2x PNG export
-(around 1024px on the long edge is plenty).
+```bash
+npm run derive-anchors   # rewrites anchors in data/catalog.json
+npm run review           # rebuilds review.html so you can check them
+```
+
+Draw each flower **upright, head up, stem running down**, with the cut end of
+the stem the lowest opaque thing in the image and fully inside the frame — if
+the stem runs off the bottom edge the derived anchor is the crop, not the cut.
+
+Resolution does not affect layout: sprites are drawn at
+`(realWidthMm / 400) * canvasWidth * scale` pixels wide, so a 2048px rose and a
+512px rose render identically.
+
+## Known gap before sprites replace the circles
+
+The artwork sits inside a lot of empty frame — the opaque content is 44–79% of
+the image width depending on the pose. The sizing rule maps `realWidthMm` onto
+the sprite, so drawing a frame naively would make a 75mm rose read as 33mm.
+`review.html` reports the fill percentage and the resulting apparent size per
+variant. Fix by cropping the PNGs to their content box, or by recording the box
+in the catalog and having the renderer scale by it. Either way it is step 5 work,
+and step 5 has not been done.

@@ -9,6 +9,7 @@ React and Next.
 npm install
 npm run dev        # http://localhost:3000
 npm run verify     # engine and PNG-reader checks
+npm run review     # rebuild review.html from the catalog and sprites
 ```
 
 ## The two rules
@@ -54,6 +55,8 @@ images — it returns numbers, and the renderer draws them.
   wants it.
 - **Placement order is not add order.** Focals take the middle, filler sits
   around them, greens land outside — the way a hand-tie is actually built up.
+  The catalog currently carries five focals and no filler or greens, so those
+  two layers render empty until foliage is added.
 - **Ring spacing** comes from the RMS head width, which leans toward the big
   heads in the middle where the room is needed. For a single-flower bouquet RMS
   and mean agree exactly.
@@ -78,9 +81,11 @@ so foliage reads over the top of the flowers.
 ### Placeholders
 
 Stems are drawn as circles at their true footprint, so the millimetre sizing can
-be judged directly. A sprig whose `bloomWidthMm` is much smaller than its
-`realWidthMm` — baby's breath, eucalyptus, an orchid spray — is drawn as a
-cluster of florets laid out with the same golden-angle spiral, one scale down.
+be judged directly, in colours sampled from the artwork. A stem whose
+`bloomWidthMm` is much smaller than its `realWidthMm` — a sprig of baby's breath,
+an orchid spray — is drawn as a cluster of florets laid out with the same
+golden-angle spiral, one scale down. No catalog item does that today; the
+current five are all single-headed.
 
 Swapping in real PNGs means changing what `StemSprite` draws inside its
 transform. Nothing about the arrangement moves.
@@ -106,7 +111,7 @@ Share links carry the whole bouquet rather than an id, with runs of identical
 stems collapsed:
 
 ```
-?b=b1.8412.round.kraft-brown.satin-cream.1.lily-pink:0*3,rose-pink:1*5
+?b=b1.8412.round.kraft-brown.satin-cream.1.lily-white:0*3,rose-red:1*5
 ```
 
 Decoding is defensive — an unknown flower, paper or ribbon falls back rather
@@ -124,7 +129,17 @@ life. The fit pass compresses it rather than letting it run off the canvas, and
 the flowers pack tightly. That is the specified scale doing its job, not a bug;
 real petals have gaps that solid placeholder circles do not.
 
-## Anchors
+## Sprites and anchors
+
+`public/assets` holds sixteen transparent PNGs — red rose, white lily and pink
+carnation in four poses each, sunflower in three, plus a smaller sunflower —
+generated with Magnific and background-removed. `assets-manifest.json` records
+the original creation, the cutout creation and the local filename for each, so
+any asset can be traced back.
+
+The app still draws placeholder circles: swapping them for the artwork is step
+5, and step 5 has not been done. The circles' colours are now sampled from the
+sprites, so a white lily reads white.
 
 `scripts/derive-anchors.ts` reads every PNG in `public/assets`, finds the lowest
 row containing an opaque pixel, takes that row's alpha-weighted horizontal
@@ -136,11 +151,16 @@ npm run derive-anchors -- --dry-run        # report without writing
 npm run derive-anchors -- --threshold=32   # what counts as opaque, default 8
 ```
 
-It reports files no variant asks for, variants still waiting on a file, and
-anything it could not read. The PNG reader is `scripts/lib/png.ts` — about a
-hundred lines over Node's own zlib, covering every colour type and bit depth in
-the base spec plus palette transparency, rather than a dependency for one build
-script. `npm run verify:anchors` checks it against PNGs it builds itself with
+All sixteen variants currently have an anchor. It reports files no variant asks
+for, variants still waiting on a file, and anything it could not read.
+
+`npm run review` writes `review.html`: every variant on a transparency
+checkerboard with its anchor drawn on top, its content bounding box, and the
+size it will render at. Regenerate it after any run of `derive-anchors`.
+
+The PNG reader is `scripts/lib/png.ts` — about a hundred lines over Node's own
+zlib, covering every colour type and bit depth in the base spec plus palette
+transparency, rather than a dependency for one build script. `npm run verify:anchors` checks it against PNGs it builds itself with
 known anchors, so the artwork can be trusted the first time it lands.
 
 ## Build order
@@ -151,9 +171,12 @@ The brief's order, kept strictly, one commit per step:
 2. Catalog panel, add and remove stems.
 3. Wrap styles and ribbon.
 4. Price, PNG export, share URL.
-5. Swap circles for real PNGs. **Not done** — `public/assets` is empty, and the
-   catalog's `src` paths and anchors are placeholders waiting on artwork. See
-   `public/assets/README.md`.
+5. Swap circles for real PNGs. **Not done.** The artwork and anchors are in
+   place, but the renderer still draws circles. One thing to resolve first: the
+   sprites sit inside a lot of empty frame — opaque content is 44–79% of the
+   image width — so mapping `realWidthMm` onto the whole frame would make a 75mm
+   rose read as 33mm. Crop to the content box, or record the box in the catalog
+   and scale by it. `review.html` reports the shortfall per variant.
 
 ## Layout
 
