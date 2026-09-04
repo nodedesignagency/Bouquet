@@ -427,13 +427,24 @@ function layerFor(item: CatalogItem, seed: number, n: number): LayerName {
 }
 
 /**
- * Paint order within a layer: outer rings first, so they end up behind the
- * middle of the bouquet — unless a stem has been pulled forward or pushed back
- * by hand, which takes precedence over everything.
+ * Paint order within a layer: highest head first, so it ends up furthest back.
+ *
+ * Height and depth are the same axis in a bouquet. The head mass is a dome seen
+ * from the front, so a flower on the far side of it projects high in the frame
+ * and is partly hidden by everything in front; one on the near side projects low
+ * and overlaps its neighbours. Sorting by `headY` makes that true by
+ * construction — a flower cannot be drawn in front of another while sitting
+ * above it.
+ *
+ * Ordering by ring instead, as this used to, broke the illusion: a small flower
+ * flung high by the spiral would be painted over the big ones sitting below it,
+ * and the mass stopped reading as a dome at all.
+ *
+ * A stem moved by hand takes precedence over both.
  */
 export function sortWithinLayer(stems: PlacedStem[]): PlacedStem[] {
   return [...stems].sort(
-    (a, b) => a.stem.depth - b.stem.depth || b.ring - a.ring || a.n - b.n,
+    (a, b) => a.stem.depth - b.stem.depth || a.headY - b.headY || a.n - b.n,
   );
 }
 

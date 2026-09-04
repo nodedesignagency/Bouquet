@@ -141,7 +141,15 @@ export interface WrapStyleDef {
   id: WrapStyle;
   name: string;
   description: string;
-  /** Collar width as a multiple of the flower mass half-width. */
+  /**
+   * Collar width as a multiple of the flower mass half-width.
+   *
+   * At or above 1 for the styles that are meant to hold the bouquet, so the
+   * outermost flowers sit over the paper rather than beside it. Below 1 the
+   * paper is narrower than the mass, and a flower on the edge ends up floating
+   * clear of the wrap with its stem hidden behind the collar — reading as a
+   * flower that belongs to nothing.
+   */
   collarSpread: number;
   /** How far up the flower mass the collar's side points reach, 0 to 1. */
   collarRise: number;
@@ -159,7 +167,7 @@ export const WRAP_STYLES: WrapStyleDef[] = [
     id: "round",
     name: "Round",
     description: "A wide fan collar on a base it can stand in.",
-    collarSpread: 0.94,
+    collarSpread: 1.02,
     collarRise: 0.42,
     baseSpread: 0.52,
     baseHeight: 0.74,
@@ -170,7 +178,7 @@ export const WRAP_STYLES: WrapStyleDef[] = [
     id: "cornet",
     name: "Cornet",
     description: "Tall cone, points flaring at the corners.",
-    collarSpread: 0.82,
+    collarSpread: 0.94,
     collarRise: 0.66,
     baseSpread: 0.38,
     baseHeight: 0.88,
@@ -181,7 +189,7 @@ export const WRAP_STYLES: WrapStyleDef[] = [
     id: "sleeve",
     name: "Sleeve",
     description: "One sheet, folded to a point.",
-    collarSpread: 0.68,
+    collarSpread: 0.8,
     collarRise: 0.3,
     baseSpread: 0.26,
     baseHeight: 1,
@@ -293,10 +301,14 @@ export function buildWrap(
   // would make it swallow the bouquet.
   const core = placed.filter((stem) => stem.item.category !== "green");
   const bounds = headMassBounds(core.length > 0 ? core : placed, layout);
+  // How far the flowers reach from the tie point, not half the width of their
+  // bounding box. The collar is centred on the tie, so a mass that leans to one
+  // side needs a collar sized to its longer reach — measuring the box instead
+  // left the outermost flower on the long side hanging off the paper.
   const massHalf = clamp(
-    (bounds.maxX - bounds.minX) / 2,
+    Math.max(layout.tieX - bounds.minX, bounds.maxX - layout.tieX),
     MIN_COLLAR_MM * layout.mmToPx,
-    layout.width * 0.4,
+    layout.width * 0.46,
   );
   const massTop = bounds.minY;
   const massBottom = Math.min(bounds.maxY, ty);

@@ -90,6 +90,14 @@ brightness 0.94 and a 1px blur, applied once as a shared SVG filter rather than
 per sprite. Greens are split: a seeded minority are promoted to `front-greens`
 so foliage reads over the top of the flowers.
 
+**Within a layer, paint order follows height.** Height and depth are the same
+axis in a bouquet: the head mass is a dome seen from the front, so a flower on
+the far side projects high in the frame and is partly hidden, and one on the near
+side projects low and overlaps its neighbours. Sorting by `headY` makes that true
+by construction — a flower cannot be drawn in front of another while sitting
+above it. Ordering by ring instead broke the illusion, painting a small flower
+flung high by the spiral over the big ones below it.
+
 ### Drawing a stem
 
 `StemSprite` draws a PNG inside the frame the engine established. Width comes
@@ -121,15 +129,22 @@ The wrap measures itself against the flowers, not the foliage; its rim dips
 below the bottom of the mass so the middle of the bouquet is never buried; and
 the base pinches at the tie where the ribbon pulls it in, then flares below.
 
+The collar is sized to how far the flowers reach *from the tie point*, not to
+half the width of their bounding box — it is centred on the tie, so a mass that
+leans to one side needs a collar sized to its longer reach. Round and cornet
+collars are then wide enough to sit under the outermost flowers; get this wrong
+and a flower on the edge floats clear of the paper with its stem hidden behind
+the collar, belonging to nothing.
+
 ## State, links and export
 
 `BouquetState` is the single source of truth and is fully serialisable. Mutations
 are pure functions returning a new state.
 
 Each stem also carries a `depth`, a manual override of where it sits in the
-stack. The engine's own order is sensible — outer rings behind, inner in front —
-but "that rose belongs in front of the lily" is a judgement it cannot make. Depth
-reorders painting only: nothing moves in the arrangement when you change it.
+stack. The engine orders by height, which is right for the dome, but "that rose
+belongs in front of the lily" is still a judgement it cannot make. Depth reorders
+painting only: nothing moves in the arrangement when you change it.
 
 Share links carry the whole bouquet rather than an id, with runs of identical
 stems collapsed:
