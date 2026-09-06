@@ -376,10 +376,6 @@ function layoutPass(
   return order.map((stemIndex, n) => {
     const stem = state.stems[stemIndex];
     const item = getItemOrFallback(stem.itemId);
-    const variant = item.variants[stem.variant] ?? item.variants[0];
-    // A pose may be a different real size from the item — a bud is not as wide
-    // as the flower it becomes.
-    const widthMm = variant.widthMm ?? item.realWidthMm;
 
     const ring = ringForIndex(n);
     const scale = scaleForRing(ring);
@@ -413,6 +409,13 @@ function layoutPass(
         ? dyRaw * DOME_SQUASH_UP
         : dyRaw * DOME_SQUASH_DOWN * domeFloorTaper(dx, maxRadius);
 
+    // The variant is settled only once the stem's side is known, because an
+    // arching frond has to arc away from the bouquet rather than back into it.
+    const variant = poseFor(item, stem.variant, dx);
+    // A pose may be a different real size from the item — a bud is not as wide
+    // as the flower it becomes, and an arching stem spans more than an upright.
+    const widthMm = variant.widthMm ?? item.realWidthMm;
+
     const offsetX = dx;
     const offsetY = -risePx + dy;
 
@@ -445,6 +448,28 @@ function layoutPass(
       layer: layerFor(item, state.seed, n),
     };
   });
+}
+
+/**
+ * The pose a stem is actually drawn in.
+ *
+ * Usually just the stored variant. The exception is the mirrored foliage poses:
+ * a frond that arches left belongs on the left of the bouquet, where it sweeps
+ * outward, and the same sprite on the right arcs back over the flowers instead.
+ * Which side a stem lands on is not known when it is added, so the choice is
+ * made here, from the sign of its offset — the stored variant still decides
+ * that this stem is an arching one rather than an upright or a sprig.
+ */
+function poseFor(item: CatalogItem, variantIndex: number, dx: number) {
+  const variant = item.variants[variantIndex] ?? item.variants[0];
+  const wanted =
+    variant.facing === "arch-left" || variant.facing === "arch-right"
+      ? dx < 0
+        ? "arch-left"
+        : "arch-right"
+      : null;
+  if (!wanted || variant.facing === wanted) return variant;
+  return item.variants.find((candidate) => candidate.facing === wanted) ?? variant;
 }
 
 /**

@@ -55,8 +55,6 @@ images — it returns numbers, and the renderer draws them.
   wants it.
 - **Placement order is not add order.** Focals take the middle, filler sits
   around them, greens land outside — the way a hand-tie is actually built up.
-  The catalog currently carries five focals and no filler or greens, so those
-  two layers render empty until foliage is added.
 - **Ring spacing** comes from the RMS head width, which leans toward the big
   heads in the middle where the room is needed. For a single-flower bouquet RMS
   and mean agree exactly.
@@ -121,7 +119,16 @@ stem the placeholder circles always drew.
 A variant may also carry its own `widthMm`. A bud is not the size of the open
 flower — an unopened rose is about half the width of a bloomed one — but every
 pose was inheriting a single `realWidthMm`, so buds rendered full-size on
-full-length stems and read as blobs rather than as buds.
+full-length stems and read as blobs rather than as buds. Foliage needs it too:
+an arching eucalyptus spans twice what the same stem does upright.
+
+**Arching foliage is mirrored to suit its side.** `arch-left` and `arch-right`
+are the same stem flipped, and a frond that arches left belongs on the left of
+the bouquet where it sweeps outward — the same sprite on the right arcs back
+over the flowers instead. Which side a stem lands on is not known when it is
+added, so the engine settles it at placement time from the sign of the stem's
+offset. The stored variant still decides that a stem is an arching one rather
+than an upright or a sprig.
 
 A variant with no artwork falls back to those circles, so a catalog entry can be
 added before its sprite exists. A stem whose `bloomWidthMm` is much smaller than
@@ -192,9 +199,11 @@ did with solid circles.
 
 ## Sprites and anchors
 
-`public/assets` holds sixteen transparent PNGs — red rose, white lily and pink
-carnation in four poses each, sunflower in three, plus a smaller sunflower —
-generated with Magnific and background-removed. `assets-manifest.json` records
+`public/assets` holds twenty-eight transparent PNGs, generated with Magnific and
+background-removed: five focals (red rose, white lily and pink carnation in four
+poses each, sunflower in three, a smaller sunflower), baby's breath as filler,
+and silver dollar eucalyptus and leatherleaf fern as greens — the foliage in
+upright, arch-left, arch-right and sprig poses. `assets-manifest.json` records
 the original creation, the cutout creation and the local filename for each, so
 any asset can be traced back.
 

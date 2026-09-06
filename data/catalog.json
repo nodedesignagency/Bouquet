@@ -284,5 +284,218 @@
         "headY": 291
       }
     ]
+  },
+  {
+    "id": "eucalyptus-silver",
+    "name": "Silver Dollar Eucalyptus",
+    "category": "green",
+    "colorway": "sage",
+    "pricePerStem": 20,
+    "realWidthMm": 120,
+    "bloomWidthMm": 32,
+    "stemLengthMm": 175,
+    "stemColor": "#8a7d5a",
+    "headColor": "#8fa87d",
+    "accentColor": "#6f8a5f",
+    "variants": [
+      {
+        "src": "/assets/eucalyptus-silver-upright.png",
+        "anchor": [
+          200,
+          1626
+        ],
+        "size": [
+          357,
+          1627
+        ],
+        "headY": 265,
+        "facing": "upright",
+        "widthMm": 78
+      },
+      {
+        "src": "/assets/eucalyptus-silver-arch-left.png",
+        "anchor": [
+          584,
+          1608
+        ],
+        "size": [
+          659,
+          1609
+        ],
+        "headY": 236,
+        "facing": "arch-left",
+        "widthMm": 150
+      },
+      {
+        "src": "/assets/eucalyptus-silver-arch-right.png",
+        "anchor": [
+          161,
+          1765
+        ],
+        "size": [
+          645,
+          1766
+        ],
+        "headY": 255,
+        "facing": "arch-right",
+        "widthMm": 148
+      },
+      {
+        "src": "/assets/eucalyptus-silver-sprig.png",
+        "anchor": [
+          171,
+          1157
+        ],
+        "size": [
+          470,
+          1158
+        ],
+        "headY": 604,
+        "facing": "sprig",
+        "widthMm": 98
+      }
+    ]
+  },
+  {
+    "id": "fern-leatherleaf",
+    "name": "Leatherleaf Fern",
+    "category": "green",
+    "colorway": "deep-green",
+    "pricePerStem": 18,
+    "realWidthMm": 150,
+    "bloomWidthMm": 28,
+    "stemLengthMm": 165,
+    "stemColor": "#4a6b3a",
+    "headColor": "#3f6b34",
+    "accentColor": "#2d5226",
+    "variants": [
+      {
+        "src": "/assets/fern-leatherleaf-upright.png",
+        "anchor": [
+          411,
+          1680
+        ],
+        "size": [
+          820,
+          1681
+        ],
+        "headY": 883,
+        "facing": "upright",
+        "widthMm": 145
+      },
+      {
+        "src": "/assets/fern-leatherleaf-arch-left.png",
+        "anchor": [
+          546,
+          1523
+        ],
+        "size": [
+          932,
+          1524
+        ],
+        "headY": 859,
+        "facing": "arch-left",
+        "widthMm": 158
+      },
+      {
+        "src": "/assets/fern-leatherleaf-arch-right.png",
+        "anchor": [
+          141,
+          1287
+        ],
+        "size": [
+          953,
+          1288
+        ],
+        "headY": 637,
+        "facing": "arch-right",
+        "widthMm": 165
+      },
+      {
+        "src": "/assets/fern-leatherleaf-sprig.png",
+        "anchor": [
+          416,
+          1580
+        ],
+        "size": [
+          799,
+          1581
+        ],
+        "headY": 862,
+        "facing": "sprig",
+        "widthMm": 140
+      }
+    ]
+  },
+  {
+    "id": "babysbreath",
+    "name": "Baby's Breath",
+    "category": "filler",
+    "colorway": "white",
+    "pricePerStem": 25,
+    "realWidthMm": 170,
+    "bloomWidthMm": 8,
+    "stemLengthMm": 170,
+    "stemColor": "#7d9a6c",
+    "headColor": "#f7f4ec",
+    "accentColor": "#dcd6c6",
+    "variants": [
+      {
+        "src": "/assets/babysbreath-upright.png",
+        "anchor": [
+          438,
+          1621
+        ],
+        "size": [
+          834,
+          1622
+        ],
+        "headY": 605,
+        "facing": "upright",
+        "widthMm": 175
+      },
+      {
+        "src": "/assets/babysbreath-arch-left.png",
+        "anchor": [
+          644,
+          1455
+        ],
+        "size": [
+          881,
+          1456
+        ],
+        "headY": 588,
+        "facing": "arch-left",
+        "widthMm": 165
+      },
+      {
+        "src": "/assets/babysbreath-arch-right.png",
+        "anchor": [
+          257,
+          1697
+        ],
+        "size": [
+          927,
+          1698
+        ],
+        "headY": 765,
+        "facing": "arch-right",
+        "widthMm": 172
+      },
+      {
+        "src": "/assets/babysbreath-sprig.png",
+        "anchor": [
+          133,
+          1084
+        ],
+        "size": [
+          870,
+          1085
+        ],
+        "headY": 386,
+        "facing": "sprig",
+        "widthMm": 128
+      }
+    ]
   }
 ]

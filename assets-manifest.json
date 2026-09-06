@@ -2,7 +2,7 @@
   "generatedAt": "2026-09-04T12:55:00Z",
   "source": "Magnific",
   "pipeline": "text-to-image -> images_remove_background -> saved as transparent PNG",
-  "note": "Cutouts are 1248x1872; the text-to-image sources were 1664x2496. Background removal downscaled by 0.75. Files delivered as -3q were renamed to -three-quarter to match the catalog's variant naming.",
+  "note": "Cutouts are 1248x1872; the text-to-image sources were 1664x2496. Background removal downscaled by 0.75. Files delivered as -3q were renamed to -three-quarter to match the catalog's variant naming. The twelve foliage sprites were generated later at 1152x2048 and went through the same removal and crop.",
   "assets": [
     {
       "file": "public/assets/rose-red-front.png",
@@ -115,6 +115,90 @@
       "cutoutCreation": "s76SEsPl8e",
       "cutoutWebUrl": "https://www.magnific.com/app/creation/s76SEsPl8e",
       "originalWebUrl": "https://www.magnific.com/app/creation/SyR7XiJUb8"
+    },
+    {
+      "file": "public/assets/eucalyptus-silver-upright.png",
+      "originalCreation": "O6zd7zRynm",
+      "cutoutCreation": "w42pJRn7EI",
+      "cutoutWebUrl": "https://www.magnific.com/app/creation/w42pJRn7EI",
+      "originalWebUrl": "https://www.magnific.com/app/creation/O6zd7zRynm"
+    },
+    {
+      "file": "public/assets/eucalyptus-silver-arch-left.png",
+      "originalCreation": "8aqgB5yIrU",
+      "cutoutCreation": "VXvkDCWMMU",
+      "cutoutWebUrl": "https://www.magnific.com/app/creation/VXvkDCWMMU",
+      "originalWebUrl": "https://www.magnific.com/app/creation/8aqgB5yIrU"
+    },
+    {
+      "file": "public/assets/eucalyptus-silver-arch-right.png",
+      "originalCreation": "UPZMgn5wny",
+      "cutoutCreation": "P3Yo9dI42C",
+      "cutoutWebUrl": "https://www.magnific.com/app/creation/P3Yo9dI42C",
+      "originalWebUrl": "https://www.magnific.com/app/creation/UPZMgn5wny"
+    },
+    {
+      "file": "public/assets/eucalyptus-silver-sprig.png",
+      "originalCreation": "rgPzkZhxtc",
+      "cutoutCreation": "SyRMwp3Ub8",
+      "cutoutWebUrl": "https://www.magnific.com/app/creation/SyRMwp3Ub8",
+      "originalWebUrl": "https://www.magnific.com/app/creation/rgPzkZhxtc"
+    },
+    {
+      "file": "public/assets/fern-leatherleaf-upright.png",
+      "originalCreation": "nVoQGutYQD",
+      "cutoutCreation": "5j72k0WKxe",
+      "cutoutWebUrl": "https://www.magnific.com/app/creation/5j72k0WKxe",
+      "originalWebUrl": "https://www.magnific.com/app/creation/nVoQGutYQD"
+    },
+    {
+      "file": "public/assets/fern-leatherleaf-arch-left.png",
+      "originalCreation": "cptqY5I0eP",
+      "cutoutCreation": "aFryCzafSh",
+      "cutoutWebUrl": "https://www.magnific.com/app/creation/aFryCzafSh",
+      "originalWebUrl": "https://www.magnific.com/app/creation/cptqY5I0eP"
+    },
+    {
+      "file": "public/assets/fern-leatherleaf-arch-right.png",
+      "originalCreation": "eIExDlldqL",
+      "cutoutCreation": "WDIq09CcXe",
+      "cutoutWebUrl": "https://www.magnific.com/app/creation/WDIq09CcXe",
+      "originalWebUrl": "https://www.magnific.com/app/creation/eIExDlldqL"
+    },
+    {
+      "file": "public/assets/fern-leatherleaf-sprig.png",
+      "originalCreation": "BhFsdJQoQR",
+      "cutoutCreation": "bxwZKCD5Y2",
+      "cutoutWebUrl": "https://www.magnific.com/app/creation/bxwZKCD5Y2",
+      "originalWebUrl": "https://www.magnific.com/app/creation/BhFsdJQoQR"
+    },
+    {
+      "file": "public/assets/babysbreath-upright.png",
+      "originalCreation": "ksOA5V016B",
+      "cutoutCreation": "9ZcIiAKNYZ",
+      "cutoutWebUrl": "https://www.magnific.com/app/creation/9ZcIiAKNYZ",
+      "originalWebUrl": "https://www.magnific.com/app/creation/ksOA5V016B"
+    },
+    {
+      "file": "public/assets/babysbreath-arch-left.png",
+      "originalCreation": "CqjPazuEEy",
+      "cutoutCreation": "yinB9nQPW9",
+      "cutoutWebUrl": "https://www.magnific.com/app/creation/yinB9nQPW9",
+      "originalWebUrl": "https://www.magnific.com/app/creation/CqjPazuEEy"
+    },
+    {
+      "file": "public/assets/babysbreath-arch-right.png",
+      "originalCreation": "tC5U8AbmZJ",
+      "cutoutCreation": "XmQs8KuBfo",
+      "cutoutWebUrl": "https://www.magnific.com/app/creation/XmQs8KuBfo",
+      "originalWebUrl": "https://www.magnific.com/app/creation/tC5U8AbmZJ"
+    },
+    {
+      "file": "public/assets/babysbreath-sprig.png",
+      "originalCreation": "4RWoykG9Aa",
+      "cutoutCreation": "aFryEOVfSh",
+      "cutoutWebUrl": "https://www.magnific.com/app/creation/aFryEOVfSh",
+      "originalWebUrl": "https://www.magnific.com/app/creation/4RWoykG9Aa"
     }
   ]
 }

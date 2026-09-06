@@ -132,7 +132,10 @@ export function starterBouquet(): BouquetState {
     ["sunflower-small", 1],
     ["lily-white", 3],
     ["rose-red", 5],
-    ["carnation-pink", 4],
+    ["carnation-pink", 3],
+    ["babysbreath", 3],
+    ["eucalyptus-silver", 2],
+    ["fern-leatherleaf", 2],
   ];
   let state = DEFAULT_STATE;
   for (const [itemId, count] of recipe) {

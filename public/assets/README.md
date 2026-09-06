@@ -1,10 +1,17 @@
 # Sprites
 
-Sixteen transparent PNGs: red rose, white lily and pink carnation in four poses
-each (front, three-quarter, side, bud), plus sunflower in three and a smaller
-sunflower in one. Generated with Magnific and background-removed; see
-`assets-manifest.json` at the repo root to trace any file back to the creation
-it came from.
+Twenty-eight transparent PNGs, generated with Magnific and background-removed.
+See `assets-manifest.json` at the repo root to trace any file back to the
+creation it came from.
+
+- **Focals** — red rose, white lily and pink carnation in front, three-quarter,
+  side and bud; sunflower in three; a smaller sunflower in one.
+- **Filler** — baby's breath.
+- **Greens** — silver dollar eucalyptus and leatherleaf fern.
+
+Foliage comes in upright, arch-left, arch-right and sprig. The two arch poses
+are mirror images, and the engine picks between them by which side of the
+bouquet the stem lands on, so greenery always sweeps outward.
 
 RGBA, and **cropped tight to their content**. That matters: sprites are drawn at
 `(realWidthMm / 400) * canvasWidth * scale` pixels wide, so any transparent

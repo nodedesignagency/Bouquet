@@ -16,7 +16,18 @@ export type StemCategory = "focal" | "filler" | "green";
  * but it lives on the same axis: it is one of the poses a stem can be drawn in,
  * and the engine picks between them the same way.
  */
-export type Facing = "front" | "3q" | "side" | "bud";
+export type Facing =
+  | "front"
+  | "3q"
+  | "side"
+  | "bud"
+  // Foliage poses. `arch-left` and `arch-right` are mirror images; which one is
+  // used is decided by the side of the bouquet the stem lands on, not by the
+  // stored variant, so greenery always arcs outward.
+  | "upright"
+  | "arch-left"
+  | "arch-right"
+  | "sprig";
 
 export interface CatalogVariant {
   /** Path under /public. */
