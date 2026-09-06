@@ -71,6 +71,12 @@ images — it returns numbers, and the renderer draws them.
 - **The head mass is wider than it is tall.** The dome squash is well under 1 on
   both axes, which is what a hand-tie looks like from the front. Nearer 1, the
   spiral threw stems above the bouquet and buried others behind the collar.
+- **The mass's floor is shaped like the collar's rim.** The downward drop tapers
+  toward the sides by `1 - u²`, the same family as the rim's `2t(1-t)`, so the
+  bottom of the flower mass is a smile rather than an arc bulging down. A
+  uniform radial drop put the two curves on a collision course: a flower both low
+  and off to one side landed under a rising side point and vanished behind the
+  paper.
 - **Fit pass**: three scalars, each solved in closed form from a first placement
   pass, rein the spiral in — one for the frame's width, one for its top, and one
   that keeps every stem's lean within 42°. Adding a thirtieth stem tightens the
@@ -112,6 +118,11 @@ buries the cut end inside the wrap, where a longer stem would go anyway; sliding
 up lifts it off the tie point, so a stem is drawn in to bridge the gap — the same
 stem the placeholder circles always drew.
 
+A variant may also carry its own `widthMm`. A bud is not the size of the open
+flower — an unopened rose is about half the width of a bloomed one — but every
+pose was inheriting a single `realWidthMm`, so buds rendered full-size on
+full-length stems and read as blobs rather than as buds.
+
 A variant with no artwork falls back to those circles, so a catalog entry can be
 added before its sprite exists. A stem whose `bloomWidthMm` is much smaller than
 its `realWidthMm` — a sprig of baby's breath, an orchid spray — falls back to a
@@ -135,6 +146,14 @@ leans to one side needs a collar sized to its longer reach. Round and cornet
 collars are then wide enough to sit under the outermost flowers; get this wrong
 and a flower on the edge floats clear of the paper with its stem hidden behind
 the collar, belonging to nothing.
+
+Its rim is `top + dip·(1 - u²)`, and how high the side points may rise is solved
+rather than chosen: writing the rim as a blend makes it linear in `top`, so
+`rimY(u) >= headY` gives the exact ceiling for each flower and the largest wins.
+`verify-engine` asserts no flower's centre ends up behind the rim, across several
+recipes and seeds — that check found a long-standing bug on its first run, since
+a quadratic Bézier passes only half way to its control point and the rim had
+therefore been dipping half as far as every calculation assumed.
 
 ## State, links and export
 

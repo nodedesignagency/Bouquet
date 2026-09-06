@@ -49,6 +49,26 @@ const DOME_SQUASH_UP = 0.72;
 const DOME_SQUASH_DOWN = 0.34;
 
 /**
+ * The downward drop also tapers toward the sides, so the bottom of the flower
+ * mass is a smile rather than an arc bulging down.
+ *
+ * This is not decoration — it is the shape of the collar's rim. The paper's
+ * mouth sits lowest in the middle and rises to a point at each side, so a
+ * uniform radial drop puts the two curves on a collision course: a flower that
+ * is both low and off to one side lands underneath a rising point and vanishes
+ * behind the paper. Weighting the drop by `1 - u²` (u being how far across the
+ * mass the stem sits) gives the mass a floor of the same family as the rim,
+ * `2t(1-t)`, so the two never cross. Flowers at the sides ride up over the
+ * points where they belong, and the ones that come forward and low are the
+ * central ones — which is where they sit in a photograph.
+ */
+function domeFloorTaper(dx: number, maxRadius: number): number {
+  if (maxRadius <= 0) return 1;
+  const u = Math.min(1, Math.abs(dx) / maxRadius);
+  return 1 - u * u;
+}
+
+/**
  * Ring spacing is derived from the root-mean-square head width rather than the
  * plain mean, because RMS leans toward the big heads — and the big heads are
  * the ones in the middle deciding how much room the spiral needs. For a bouquet
@@ -347,10 +367,19 @@ function layoutPass(
   spiralFit: number,
   riseFit: number,
 ): PlacedStem[] {
+  // The widest the spiral can reach on this pass, known in closed form: the
+  // outermost stem at its largest jitter. The dome's floor is measured against
+  // it, so the taper is relative to the mass rather than to the canvas.
+  const maxRadius =
+    layout.ringSpacingPx * spiralFit * Math.sqrt(Math.max(0, order.length - 1)) * (1 + RADIUS_JITTER);
+
   return order.map((stemIndex, n) => {
     const stem = state.stems[stemIndex];
     const item = getItemOrFallback(stem.itemId);
     const variant = item.variants[stem.variant] ?? item.variants[0];
+    // A pose may be a different real size from the item — a bud is not as wide
+    // as the flower it becomes.
+    const widthMm = variant.widthMm ?? item.realWidthMm;
 
     const ring = ringForIndex(n);
     const scale = scaleForRing(ring);
@@ -379,7 +408,10 @@ function layoutPass(
     const angleRad = angleDeg * DEG;
     const dx = Math.sin(angleRad) * radiusPx;
     const dyRaw = -Math.cos(angleRad) * radiusPx;
-    const dy = dyRaw * (dyRaw < 0 ? DOME_SQUASH_UP : DOME_SQUASH_DOWN);
+    const dy =
+      dyRaw < 0
+        ? dyRaw * DOME_SQUASH_UP
+        : dyRaw * DOME_SQUASH_DOWN * domeFloorTaper(dx, maxRadius);
 
     const offsetX = dx;
     const offsetY = -risePx + dy;
@@ -408,8 +440,8 @@ function layoutPass(
       rotationDeg,
       axisLengthPx,
       risePx,
-      widthPx: spriteWidthPx(item.realWidthMm, layout.width, scale),
-      bloomPx: spriteWidthPx(item.bloomWidthMm, layout.width, scale),
+      widthPx: spriteWidthPx(widthMm, layout.width, scale),
+      bloomPx: spriteWidthPx(Math.min(item.bloomWidthMm, widthMm), layout.width, scale),
       layer: layerFor(item, state.seed, n),
     };
   });

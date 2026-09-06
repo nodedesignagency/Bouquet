@@ -7,6 +7,7 @@
  */
 
 import { computeLayout, placeStems, ringForIndex, scaleForRing, spriteWidthPx } from "../lib/engine";
+import { buildWrap, rimYAt } from "../lib/wrap";
 import { addStem, DEFAULT_STATE, removeStemAt, starterBouquet } from "../lib/state";
 import { CANVAS_HEIGHT, CANVAS_WIDTH } from "../lib/canvas";
 import type { BouquetState } from "../lib/types";
@@ -89,6 +90,45 @@ check(
 check(
   "every head sits above the tie point",
   placed.every((s) => s.headY < layout.tieY),
+);
+
+// The one that actually went wrong: a flower low AND off to one side landing
+// under the collar's rising side point, and vanishing behind the paper. The
+// dome's floor is shaped like the rim to prevent it, so assert the two curves
+// never cross — across several seeds and several recipes, since whether they do
+// depends on where the spiral happens to put things.
+const RECIPES: Array<[string, Array<[string, number]>]> = [
+  ["mixed", [["sunflower-small", 1], ["lily-white", 3], ["rose-red", 5], ["carnation-pink", 4]]],
+  ["sunflower-heavy", [["sunflower", 3], ["sunflower-small", 2], ["rose-red", 3], ["carnation-pink", 3]]],
+  ["lily-heavy", [["lily-white", 6], ["carnation-pink", 4]]],
+  ["one-of-each", [["sunflower", 1], ["lily-white", 1], ["rose-red", 1], ["carnation-pink", 1]]],
+];
+
+let buried = 0;
+let checked = 0;
+for (const [, recipe] of RECIPES) {
+  for (const seed of [8412, 1, 777, 20260906, 65535]) {
+    let candidate: BouquetState = { ...DEFAULT_STATE, seed };
+    for (const [itemId, count] of recipe) {
+      for (let i = 0; i < count; i += 1) candidate = addStem(candidate, itemId);
+    }
+    const l = computeLayout(CANVAS_WIDTH, CANVAS_HEIGHT, candidate);
+    const stems = placeStems(candidate, l);
+    const { rim } = buildWrap(candidate, l, stems);
+    if (!rim) continue;
+    for (const stem of stems) {
+      checked += 1;
+      // The head's centre must clear the rim. Half a bloom may sit behind the
+      // paper — that is a flower resting in the wrap — but the middle of it
+      // must not.
+      if (stem.headY > rimYAt(rim, stem.headX)) buried += 1;
+    }
+  }
+}
+check(
+  "no flower's centre falls behind the collar rim",
+  buried === 0,
+  `${buried} of ${checked} heads buried`,
 );
 
 // The golden angle should be recoverable from consecutive stems, to within the

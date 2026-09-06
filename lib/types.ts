@@ -36,6 +36,15 @@ export interface CatalogVariant {
    */
   size: [number, number];
   /**
+   * Real width of this pose, in millimetres, when it differs from the item's.
+   *
+   * A bud is not the size of the open flower — an unopened rose is about half
+   * the width of a bloomed one — but every variant was inheriting a single
+   * `realWidthMm`, so buds rendered at full size on a full-length stem and read
+   * as blobs rather than as buds. Absent means "the same as the item".
+   */
+  widthMm?: number;
+  /**
    * Row the middle of the bloom sits on, in the sprite's own pixels. Written by
    * `scripts/derive-anchors.ts`.
    *

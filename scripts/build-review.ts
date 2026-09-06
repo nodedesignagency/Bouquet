@@ -29,6 +29,7 @@ interface Variant {
   anchor: [number, number];
   size: [number, number];
   headY: number;
+  widthMm?: number;
   facing: string;
 }
 
@@ -121,7 +122,10 @@ function card(entry: CatalogEntry, m: Measured): string {
   // realWidthMm lands on the flower and not on its packaging. Anything less
   // means a sprite has been added without being cropped.
   const fill = (boxW / m.width) * 100;
-  const onScreenPx = (entry.realWidthMm / CANVAS_WIDTH_MM) * CANVAS_WIDTH_PX;
+  // A pose may be a different real size from its item — a bud is not as wide as
+  // the flower it becomes.
+  const widthMm = variant.widthMm ?? entry.realWidthMm;
+  const onScreenPx = (widthMm / CANVAS_WIDTH_MM) * CANVAS_WIDTH_PX;
   const onScreenH = onScreenPx * (m.height / m.width);
 
   // Where the anchor sits inside the frame, as a fraction — this, not the pixel
@@ -130,7 +134,7 @@ function card(entry: CatalogEntry, m: Measured): string {
   const fy = (ay / m.height).toFixed(4);
 
   // The distance the renderer has to work with: cut end up to the bloom.
-  const stemMm = ((ay - variant.headY) / m.width) * entry.realWidthMm;
+  const stemMm = ((ay - variant.headY) / m.width) * widthMm;
   const headTop = ((variant.headY / m.height) * 100).toFixed(3);
   void boxH;
 
@@ -149,7 +153,9 @@ function card(entry: CatalogEntry, m: Measured): string {
           <dt>anchor</dt><dd>${ax}, ${ay} <span class="fine">(${fx}, ${fy})</span></dd>
           <dt>head row</dt><dd>${variant.headY} <span class="fine">→ ${stemMm.toFixed(0)} mm of stem</span></dd>
           <dt>image</dt><dd>${m.width} × ${m.height}<span class="${fill < 99.5 ? "warn" : "fine"}"> ${fill.toFixed(0)}% content — ${fill < 99.5 ? "needs cropping" : "cropped"}</span></dd>
-          <dt>drawn</dt><dd>${onScreenPx.toFixed(0)} × ${onScreenH.toFixed(0)} px at ${entry.realWidthMm} mm</dd>
+          <dt>drawn</dt><dd>${onScreenPx.toFixed(0)} × ${onScreenH.toFixed(0)} px at ${widthMm} mm${
+            variant.widthMm ? '<span class="warn"> (pose override)</span>' : ""
+          }</dd>
         </dl>
       </figcaption>
     </figure>`;

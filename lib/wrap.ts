@@ -235,6 +235,35 @@ export interface Gradient {
   stops: Array<{ offset: string; color: string; opacity?: number }>;
 }
 
+/**
+ * The collar's rim, as numbers rather than as a path.
+ *
+ * The rim is a quadratic from one side point through a control at `top + dip`
+ * to the other, so its height across the collar is `top + 2t(1-t)·dip` — lowest
+ * in the middle, highest at the points. The engine's dome floor is shaped to
+ * match, and `verify-engine` checks that no flower ends up under it.
+ */
+export interface CollarRim {
+  centreX: number;
+  halfWidth: number;
+  top: number;
+  dip: number;
+}
+
+/**
+ * Height of the collar's rim at a given x. Past the side points, returns its top.
+ *
+ * `dip` is the drop at the centre, so this is `top + dip·(1 - u²)` with u the
+ * fraction of the half-width. The drawn path reaches the same curve by putting
+ * its control point at twice the dip — a quadratic passes only half way to its
+ * control.
+ */
+export function rimYAt(rim: CollarRim, x: number): number {
+  if (rim.halfWidth <= 0) return rim.top;
+  const u = Math.min(1, Math.abs(x - rim.centreX) / rim.halfWidth);
+  return rim.top + (1 - u * u) * rim.dip;
+}
+
 export interface WrapGeometry {
   gradients: Gradient[];
   back: WrapShape[];
@@ -246,6 +275,8 @@ export interface WrapGeometry {
    * the bouquet is unwrapped and the cut stems are meant to show.
    */
   baseBottomY: number | null;
+  /** The collar's rim. Null when there is no collar to hide behind. */
+  rim: CollarRim | null;
 }
 
 /** Floral tape is about 12mm wide on the reel. */
@@ -256,6 +287,46 @@ const MIN_COLLAR_MM = 55;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, value));
+}
+
+/** A flower's centre must clear the rim by this much before the paper reads as behind it. */
+const RIM_CLEARANCE_PX = 6;
+
+/**
+ * The highest the collar's side points may rise without swallowing a flower.
+ *
+ * Writing the rim as a blend makes this exact. With the dip taken from the
+ * middle, `rimY(u) = top·u² + rimMid·(1-u²)` — the rim is `top` at the side
+ * points and `rimMid` at the centre — which is linear in `top`, so the
+ * requirement `rimY(u) >= headY` solves directly for each flower:
+ *
+ *   top >= (headY - rimMid·(1-u²)) / u²
+ *
+ * Taking the largest gives the one number that keeps every flower in front of
+ * the paper. Flowers near the middle are left out: there `u²` vanishes, the rim
+ * is `rimMid` whatever `top` does, and `rimMid` already sits below the mass.
+ *
+ * Shaping the dome's floor like the rim was necessary but not sufficient — both
+ * curves are `1 - u²`, but two curves of the same shape still cross if their
+ * baselines are wrong, and the collar was sitting about ten pixels too high.
+ */
+function lowestPointClearing(
+  placed: PlacedStem[],
+  tx: number,
+  collarHalf: number,
+  rimMid: number,
+): number {
+  const MIN_U_SQUARED = 0.04;
+  let required = -Infinity;
+
+  for (const stem of placed) {
+    const u = collarHalf > 0 ? Math.min(1, Math.abs(stem.headX - tx) / collarHalf) : 0;
+    const uu = u * u;
+    if (uu < MIN_U_SQUARED) continue;
+    required = Math.max(required, (stem.headY + RIM_CLEARANCE_PX - rimMid * (1 - uu)) / uu);
+  }
+
+  return required === -Infinity ? -Infinity : required;
 }
 
 /**
@@ -285,7 +356,15 @@ export function buildWrap(
   // Nothing to wrap. A collar and a bow tied around thin air reads as a bug,
   // and the empty stage is the clearer invitation to add a stem.
   if (placed.length === 0) {
-    return { gradients: [], back: [], front: [], tape: [], ribbon: [], baseBottomY: null };
+    return {
+      gradients: [],
+      back: [],
+      front: [],
+      tape: [],
+      ribbon: [],
+      baseBottomY: null,
+      rim: null,
+    };
   }
 
   const style = getWrapStyle(state.wrapStyle);
@@ -318,9 +397,12 @@ export function buildWrap(
   // bottom of the mass, which is what keeps the middle of the bouquet clear of
   // paper instead of buried under it.
   const collarHalf = massHalf * style.collarSpread;
-  const collarTop = massBottom - massHeight * style.collarRise;
-  const collarHeight = Math.max(1, ty - collarTop);
   const rimMid = massBottom + (ty - massBottom) * 0.24;
+  const collarTop = Math.min(
+    rimMid - 1,
+    Math.max(massBottom - massHeight * style.collarRise, lowestPointClearing(core, tx, collarHalf, rimMid)),
+  );
+  const collarHeight = Math.max(1, ty - collarTop);
 
   const baseHalf = collarHalf * style.baseSpread;
   const baseBottom = ty + (layout.height * 0.965 - ty) * style.baseHeight;
@@ -389,6 +471,15 @@ export function buildWrap(
     tape: tape.map(tidy),
     ribbon: ribbonShapes.map(tidy),
     baseBottomY: style.id === "none" ? null : baseBottom,
+    rim:
+      style.id === "none"
+        ? null
+        : {
+            centreX: tx,
+            halfWidth: collarHalf,
+            top: collarTop,
+            dip: Math.max(collarHeight * 0.16, rimMid - collarTop),
+          },
   };
 }
 
@@ -452,7 +543,11 @@ function frontCollar(
   const d = [
     `M ${tx - half * 0.3} ${ty}`,
     `C ${tx - half * 0.9} ${ty - height * 0.5} ${tx - half} ${top + height * 0.2} ${tx - half} ${top}`,
-    `Q ${tx} ${top + dip} ${tx + half} ${top}`,
+    // Control at twice the dip: a quadratic passes half way to its control, so
+    // this is what actually lands the middle of the rim at `top + dip`. It was
+    // reaching only half that, which is why the paper kept swallowing flowers
+    // the arithmetic said it should clear.
+    `Q ${tx} ${top + dip * 2} ${tx + half} ${top}`,
     `C ${tx + half} ${top + height * 0.2} ${tx + half * 0.9} ${ty - height * 0.5} ${tx + half * 0.3} ${ty}`,
     "Z",
   ].join(" ");
