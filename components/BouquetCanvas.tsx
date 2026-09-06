@@ -262,18 +262,18 @@ export function StemBundle({
 }
 
 /**
- * The engine, made visible: the tie point, the ring boundaries, and the path
- * the golden angle walks from stem to stem. Marked `data-guides` so the PNG
- * export can drop it without knowing anything else about the drawing.
+ * The engine, made visible: the tie point, the row each stem stands in, and the
+ * path the golden angle walks from stem to stem. Marked `data-guides` so the
+ * PNG export can drop it without knowing anything else about the drawing.
  */
 function Guides({ placed, layout }: { placed: PlacedStem[]; layout: Layout }) {
-  // Ring radii are read back off the placed stems rather than recomputed, so
-  // the guides follow the spiral after the fit pass has reined it in.
-  const ringRadii = new Map<number, number>();
+  // One polyline per row, drawn through the heads that stand in it, so the
+  // courses the engine built are visible as courses. Back rows are faint.
+  const rows = new Map<number, PlacedStem[]>();
   for (const stem of placed) {
-    if (stem.ring === 0) continue;
-    const current = ringRadii.get(stem.ring);
-    if (current === undefined || stem.radiusPx < current) ringRadii.set(stem.ring, stem.radiusPx);
+    const bucket = rows.get(stem.level);
+    if (bucket) bucket.push(stem);
+    else rows.set(stem.level, [stem]);
   }
 
   const spiral = placed
@@ -282,21 +282,40 @@ function Guides({ placed, layout }: { placed: PlacedStem[]; layout: Layout }) {
 
   return (
     <g data-guides="true" pointerEvents="none">
-      {[...ringRadii].map(([ring, radius]) => (
-        <circle
-          key={ring}
-          cx={layout.tieX}
-          cy={layout.tieY}
-          r={px(radius)}
-          fill="none"
-          stroke="#93a983"
-          strokeWidth={1}
-          strokeDasharray="4 6"
-          opacity={0.35}
-        />
-      ))}
+      {[...rows]
+        .sort((a, b) => b[0] - a[0])
+        .map(([level, stems]) => {
+          const across = [...stems].sort((a, b) => a.headX - b.headX);
+          const d = across
+            .map((s, i) => `${i === 0 ? "M" : "L"} ${px(s.headX)} ${px(s.headY)}`)
+            .join(" ");
+          return (
+            <g key={level}>
+              {across.length > 1 ? (
+                <path
+                  d={d}
+                  fill="none"
+                  stroke="#93a983"
+                  strokeWidth={1.5}
+                  strokeDasharray="4 6"
+                  opacity={0.6 - level * 0.12}
+                />
+              ) : null}
+              <text
+                x={px(across[0].headX + 8)}
+                y={px(across[0].headY - 8)}
+                fill="#93a983"
+                fontSize={11}
+                opacity={0.7 - level * 0.12}
+                fontFamily="var(--font-mono), monospace"
+              >
+                {`L${level}`}
+              </text>
+            </g>
+          );
+        })}
       {placed.length > 1 ? (
-        <path d={spiral} fill="none" stroke="#d7a05a" strokeWidth={1.5} opacity={0.55} />
+        <path d={spiral} fill="none" stroke="#d7a05a" strokeWidth={1.5} opacity={0.35} />
       ) : null}
       {placed.map((s) => (
         <circle key={s.key} cx={px(s.headX)} cy={px(s.headY)} r={3} fill="#d7a05a" opacity={0.8} />

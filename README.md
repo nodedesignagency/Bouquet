@@ -45,68 +45,126 @@ images — it returns numbers, and the renderer draws them.
 - **Tie point** at 50% across, 72% down.
 - **Golden-angle spiral**: stem *n* sits at `n * 137.5°`, radius
   `ringSpacing * sqrt(n)`, plus seeded jitter of ±8° on the angle and ±6% on the
-  radius. The same phyllotaxis a sunflower head uses, which is why it packs
-  without visible rows.
-- **Rings**: `ring = floor(sqrt(n))`, and scale drops 12% per ring outward.
+  radius. Read as a plan view — a map of the bunch seen from above — which is
+  what it is.
 - **Each stem's anchor sits on the tie point**, and the sprite rotates about it
   so the head fans away. The rotation and the on-screen stem length are *solved*
-  from the head position the spiral asks for, so both statements stay true at
-  once: every anchor is on the tie point, and every head is where the spiral
-  wants it.
-- **Each category is placed in its own band.** Look at a real hand-tie and the
-  three roles do different jobs: flowers pack a dense disc, filler threads
-  through the gaps between them, and greenery reaches out and up past the mass
-  to give the bouquet its outline. Running all three down one spiral could only
-  ever make greens "the outermost flowers", a ring further out at the same
-  height and density. So `CATEGORY_BAND` gives each one where it starts, how
-  tightly it packs, how high it carries, how far it may splay, and how much the
-  collar's floor pulls it down. A band starts at a multiple of the flower mass's
-  own radius, so greenery follows the flowers outward as more are added.
-- **Greenery is rooted among the flowers, not placed outside them.** Its tips
-  end up past the mass, but that is its *length* doing the reaching. A spray is
-  foliage all the way down its stem, so placing it out where its tips belong
-  strands the whole thing in empty space with a bare stem trailing back — which
-  is exactly what it did at first. Its band starts just inside the flowers' edge
-  instead.
-- **Foliage comes forward only at the edge.** `front-greens` used to be a blind
-  one-in-three coin, which promoted whichever green it landed on — including a
-  near-upright fern in the middle of the arrangement, painted over every flower.
-  That is not foliage in front of a bouquet, it is a fern lying on top of one.
-  A green is drawn in front only when it is on the near side of the dome *and*
-  out toward the edge.
+  from the head position the arrangement asks for, so both statements stay true
+  at once: every anchor is on the tie point, and every head is where it belongs.
+
+### Rows
+
+A bouquet is built in rows, not in a cloud, and this is the centre of the whole
+engine. Front to back, a hand-tie is a small number of distinct courses: the
+front row sits down on the rim of the wrap and hides everything behind it, and
+each row back sits a little higher, a little smaller, and is partly covered by
+the row in front.
+
+So depth is **discrete**. A stem's *level* is a whole number, 0 is the front row,
+and it settles three things at once:
+
+| level | paint order | height | size |
+| --- | --- | --- | --- |
+| 0 | painted last, over everything | lowest, down on the rim | full size |
+| *n* back | painted earlier | a row step higher | 12% smaller per row |
+
+Because one number drives all three they cannot contradict each other. What is
+drawn in front is always what sits lower; what shows above the rest is always
+what is behind. A continuous dome of jittered positions could only ever
+*approximate* that, and it got it wrong often enough to see: two flowers at
+nearly the same depth would land on top of each other with no reason for one to
+be over the other, and a small bloom would end up entirely behind a big one.
+
+- **Rows are ordered by head size, smallest to the front.** Not a matter of
+  taste — it is the only thing that keeps every flower visible. A head in a back
+  row shows the crescent of itself that clears the head in front, and that
+  crescent is `rowStep + radiusBack - radiusFront` tall. Put an open lily in
+  front of a rose bud and it goes to nothing: a flower you have paid for and
+  cannot see. Small to large makes the crescent at least a full row step, always.
+  It is also how a hand-tie is built — statement blooms up and back, buds and
+  small heads facing out over the rim. The spiral still has a say, but only
+  among heads within about a quarter of the mean width of each other.
+- **The row step is one number and it decides everything.** At 1.15 ring
+  spacings, a little over half of every flower shows above the row in front of
+  it. Too little and the rows collapse into one plane; too much and the bouquet
+  becomes a staircase. It tapers to the sides, where a dome seen head-on crowds
+  its rows together, and the total lift is capped so a deep bouquet of big
+  flowers cannot walk out of the frame.
+- **Rows are brick-bonded.** Neighbouring rows are offset half a spacing, so
+  every flower in a back row stands in the gap between two in front of it. Laid
+  out on the same positions row after row, the rows become columns and the back
+  ones might as well not be there.
+- **Each row is spaced by the stems actually in it**, pair by pair:
+  `((wa + wb) / 2) * (1 - overlap)`. An average for the whole category was the
+  last place a big bloom and a small one could still collide, leaving an open
+  lily and a rose bud the same gap — far too much for one and nowhere near
+  enough for the other. How much overlap is allowed is per role: two flowers
+  overlapping by half means one of them was a waste of money, two fronds
+  overlapping by half is what foliage looks like.
+- **Rows are centred on what they look like**, not on where their stems' middles
+  fall. A row ending in an open lily on one side and a bud on the other has far
+  more of itself on the lily's side.
+- **A stem may stand a little proud of its row**, by well under half a row step,
+  according to where the spiral put it front to back. Otherwise every row is a
+  straight line and the two sides of the bouquet are mirror images.
+- **The front row follows the mouth of the wrap.** It dips toward the rim, most
+  in the middle and not at all at the sides, weighted by `1 - u²` — the same
+  family as the rim's own `2t(1-t)`, so the two curves never cross. A uniform
+  drop put them on a collision course: a flower both low and off to one side
+  landed under a rising side point and vanished behind the paper.
+
+### The three roles
+
+Flowers, filler and greenery are laid out separately and do not disturb each
+other. `CATEGORY_LEVELS` gives each one its own width, its own spacing, its own
+overlap, how much of the middle it leaves empty, how far it is pushed toward the
+back rows, and how much of the rim's dip it takes.
+
+- **Flowers** are the face: they fill their rows from the middle outward,
+  brick-bonded so nothing hides behind the bloom in front of it.
+- **Filler** goes in the gaps, not behind the blooms — half a spacing off the
+  flowers' rows, a touch wider, and drawn behind them, so what shows of a stem
+  of gypsophila is exactly the part in a gap.
+- **Greenery** is the background: wider than the flowers, weighted to the back
+  rows, and held out of the middle. Past a ceiling it overlaps *itself* rather
+  than spreading further — twelve stems of eucalyptus given all the room they
+  ask for fan out into a peacock's tail five times the width of the flowers they
+  are meant to stand behind.
+- **Foliage comes forward only outside the flowers.** `front-greens` used to be
+  a blind one-in-three coin, which promoted whichever green it landed on —
+  including a near-upright fern painted over every flower, which is not foliage
+  in front of a bouquet but a fern lying on top of one. A green is drawn in
+  front only when it stands in the front row *and* reaches past the outermost
+  flower.
+- **Nothing a category does moves another.** Ring spacing is measured over the
+  flowers; the widest flower row sets the mass; the dome every stem rides is
+  measured across the *flowers*. Adding a stem of eucalyptus therefore leaves
+  every flower in the bouquet exactly where it was, which `verify:engine`
+  asserts to the pixel.
 - **The golden angle stays global.** Stem *n* sits at `n * 137.5°` across the
-  whole bouquet however many bands there are, so no two stems anywhere point the
-  same way. Only radius and ring come from the band — which is what separates
-  the greenery from the flowers without disturbing the phyllotaxis. Ring, and so
-  the 12% scale falloff, counts within the band too: greenery further out is not
-  a shrunken flower, since the falloff is about depth inside a mass and each
-  band is its own mass.
-- **Ring spacing** comes from the RMS head width of the *flowers*, which leans
-  toward the big heads in the middle where the room is needed. Measuring the
-  flowers alone also means adding greenery, which lives in its own band further
-  out, does not reflow the middle of the bouquet.
+  whole bouquet whatever role it plays, so no two stems anywhere point the same
+  way.
+
+### Cut length and fit
+
 - **Every stem is cut to the same length.** `stemLengthMm` barely varies across
-  the catalog, because a florist cuts a hand-tie to length — only the spiral
-  decides which heads ride higher. Taking it from the artwork instead made it
-  vary by 66mm (the sprites are framed per flower, so a big bloom arrives with a
+  the catalog, because a florist cuts a hand-tie to length — only the rows decide
+  which heads ride higher. Taking it from the artwork instead made it vary by
+  66mm (the sprites are framed per flower, so a big bloom arrives with a
   proportionally longer stem) and threw single flowers far above the rest.
-- **Rise is not scaled by ring** either. An outer flower sits lower because it
-  leans out, not because it is shorter; the 12% falloff governs size and nothing
-  else.
-- **The head mass is wider than it is tall.** The dome squash is well under 1 on
-  both axes, which is what a hand-tie looks like from the front. Nearer 1, the
-  spiral threw stems above the bouquet and buried others behind the collar.
-- **The mass's floor is shaped like the collar's rim.** The downward drop tapers
-  toward the sides by `1 - u²`, the same family as the rim's `2t(1-t)`, so the
-  bottom of the flower mass is a smile rather than an arc bulging down. A
-  uniform radial drop put the two curves on a collision course: a flower both low
-  and off to one side landed under a rising side point and vanished behind the
-  paper.
+- **Rise is not scaled by the row.** A back-row flower sits where it does because
+  of the dome, not because it is shorter; the 12% falloff governs size and
+  nothing else.
+- **Ring spacing** comes from the RMS head width of the *flowers*, which leans
+  toward the big heads in the middle where the room is needed.
 - **Fit pass**: three scalars, each solved in closed form from a first placement
-  pass, rein the spiral in — one for the frame's width, one for its top, and one
-  that keeps every stem's lean within 42°. Adding a thirtieth stem tightens the
-  bouquet instead of pushing flowers off the canvas. Greens are allowed to
-  overhang more than focals, because that is how these photographs are cropped.
+  pass, rein the arrangement in — one for the frame's width, one for its top, and
+  one that keeps every stem's lean within its role's limit. Adding a thirtieth
+  stem tightens the bouquet instead of pushing flowers off the canvas. Greens are
+  allowed to overhang more than focals, because that is how these photographs are
+  cropped. The vertical fit shortens *stems*, so it is floored: a bouquet that is
+  still too tall is one whose rows are too tall, and the row step is capped for
+  exactly that.
 
 ### Layers
 
@@ -118,16 +176,14 @@ wrap-back · greens · filler · focal · front-greens · stem-bundle · wrap-fr
 
 `wrap-back`, `greens` and `filler` sit behind the focal flowers and get
 brightness 0.94 and a 1px blur, applied once as a shared SVG filter rather than
-per sprite. Greens are split: a seeded minority are promoted to `front-greens`
-so foliage reads over the top of the flowers.
+per sprite. Greens that stand in the front row, outside the flowers, are promoted
+to `front-greens` and drape over the rim.
 
-**Within a layer, paint order follows height.** Height and depth are the same
-axis in a bouquet: the head mass is a dome seen from the front, so a flower on
-the far side projects high in the frame and is partly hidden, and one on the near
-side projects low and overlaps its neighbours. Sorting by `headY` makes that true
-by construction — a flower cannot be drawn in front of another while sitting
-above it. Ordering by ring instead broke the illusion, painting a small flower
-flung high by the spiral over the big ones below it.
+**Within a layer, paint order is the row**: back row first, front row last, with
+height breaking ties inside a row. This used to be a guess from the head's
+height, which was the best a continuous dome could offer and was wrong often
+enough to notice. Now the row *is* the depth, so the paint order and the geometry
+come from the same number and cannot disagree.
 
 ### Drawing a stem
 
@@ -194,10 +250,16 @@ therefore been dipping half as far as every calculation assumed.
 `BouquetState` is the single source of truth and is fully serialisable. Mutations
 are pure functions returning a new state.
 
-Each stem also carries a `depth`, a manual override of where it sits in the
-stack. The engine orders by height, which is right for the dome, but "that rose
-belongs in front of the lily" is still a judgement it cannot make. Depth reorders
-painting only: nothing moves in the arrangement when you change it.
+Each stem also carries a `depth`: how many rows forward or back it has been
+moved by hand. The engine's own choice of row follows head size, which is right,
+but "that rose belongs in front of the lily" is still a judgement it cannot make.
+
+Moving a stem is a **move**, not a repaint. A row settles a stem's depth, its
+height and its size together, so bringing a rose forward slides it over the lily
+next to it *and* brings it down toward the rim of the wrap *and* draws it a
+little larger — the three cannot come apart, which is the point. The rows are
+then laid out again, so the stems it moves past shuffle along to make room
+instead of being buried.
 
 Share links carry the whole bouquet rather than an id, with runs of identical
 stems collapsed:

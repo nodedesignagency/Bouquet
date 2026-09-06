@@ -120,23 +120,31 @@ export type RibbonId = string;
  * One stem in the arrangement.
  *
  * `index` is the stem's ordinal in the golden-angle spiral (n in the engine's
- * formulas) and `ring` is derived from it. Both are recomputed by
- * `normalizeStems` on every mutation so the persisted state always agrees with
- * what the engine would compute.
+ * formulas) and `ring` is the row the engine stands it in. Both are recomputed
+ * by `normalizeStems` on every mutation so the persisted state always agrees
+ * with what the engine would compute.
  */
 export interface Stem {
   itemId: string;
   variant: number;
+  /**
+   * Which row of the bouquet this stem stands in, 0 being the front row.
+   * Derived, not authored — `normalizeStems` writes it.
+   */
   ring: number;
   index: number;
   /**
-   * Manual override of where this stem sits in the stack, front to back.
+   * How many rows forward or back this stem has been moved by hand.
    *
-   * The engine's own ordering is sensible — outer rings behind, inner in front
-   * — but "that rose belongs in front of the lily" is a judgement the engine
-   * cannot make. Higher is nearer the viewer; 0 leaves the stem where the
-   * engine put it. It only reorders painting, never position, so nothing moves
-   * when you change it.
+   * The engine's own choice of row is sensible — it follows the spiral — but
+   * "that rose belongs in front of the lily" is a judgement the engine cannot
+   * make. Positive brings a stem forward.
+   *
+   * Moving a stem is a real move, not a repaint. A row decides a stem's depth,
+   * its height and its size together, so pulling one forward brings it down
+   * toward the rim of the wrap and over its neighbours at the same time —
+   * which is what happens when a florist pulls a stem forward in the bunch.
+   * 0 leaves the stem in the row the engine chose.
    */
   depth: number;
 }

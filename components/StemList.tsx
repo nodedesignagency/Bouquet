@@ -18,9 +18,9 @@ const ROW = "grid grid-cols-[1.3rem_1fr_1.5rem_3.2rem_1.4rem] items-center gap-2
 /**
  * What the engine decided, listed in the order it placed things.
  *
- * This is the arrangement's working — which stem took the middle, which ring
- * each one landed in — and the only place to act on one specific stem: remove
- * it, turn it to face another way, or move it through the stack.
+ * This is the arrangement's working — which stem took the middle, which row of
+ * the bouquet each one stands in — and the only place to act on one specific
+ * stem: remove it, turn it to face another way, or move it forward a row.
  */
 export function StemList({ state, onRemove, onCycleVariant, onNudgeDepth }: Props) {
   const layout = computeLayout(CANVAS_WIDTH, CANVAS_HEIGHT, state);
@@ -38,7 +38,7 @@ export function StemList({ state, onRemove, onCycleVariant, onNudgeDepth }: Prop
             <li className={`${ROW} rule-label px-1 pb-1 text-bench-400`}>
               <span>n</span>
               <span>Stem</span>
-              <span className="text-right">Rg</span>
+              <span className="text-right">Lv</span>
               <span className="text-center">Depth</span>
               <span />
             </li>
@@ -65,12 +65,15 @@ export function StemList({ state, onRemove, onCycleVariant, onNudgeDepth }: Prop
                       {stem.variant.facing}
                     </span>
                   </button>
-                  <span className="text-right font-mono text-[11px] tabular-nums text-bench-300">
-                    {stem.ring}
+                  <span
+                    className="text-right font-mono text-[11px] tabular-nums text-bench-300"
+                    title={`Row ${stem.level} of ${stem.levels}. Row 0 is the front row.`}
+                  >
+                    {stem.level}
                   </span>
                   <span className="flex items-center justify-center gap-0.5">
                     <DepthButton
-                      label={`Send ${stem.item.name} at position ${stem.n} back`}
+                      label={`Move ${stem.item.name} at position ${stem.n} back a row`}
                       disabled={depth <= -MAX_DEPTH}
                       onClick={() => onNudgeDepth(stem.stemIndex, -1)}
                     >
@@ -80,12 +83,12 @@ export function StemList({ state, onRemove, onCycleVariant, onNudgeDepth }: Prop
                       className={`w-3 text-center font-mono text-[10px] tabular-nums ${
                         depth === 0 ? "text-bench-500" : "text-kraft-soft"
                       }`}
-                      title="0 leaves this stem where the engine put it"
+                      title="Rows moved by hand. 0 leaves this stem in the row the engine chose"
                     >
                       {depth === 0 ? "·" : depth > 0 ? `+${depth}` : depth}
                     </span>
                     <DepthButton
-                      label={`Bring ${stem.item.name} at position ${stem.n} forward`}
+                      label={`Bring ${stem.item.name} at position ${stem.n} forward a row`}
                       disabled={depth >= MAX_DEPTH}
                       onClick={() => onNudgeDepth(stem.stemIndex, 1)}
                     >
@@ -105,7 +108,8 @@ export function StemList({ state, onRemove, onCycleVariant, onNudgeDepth }: Prop
             })}
           </ul>
           <p className="mt-3 text-[11px] leading-snug text-bench-400">
-            Depth moves a stem through the stack without moving it in the arrangement. Click a
+            Lv is the row a stem stands in: row 0 is the front one, lowest and nearest the
+            rim. Moving a stem forward brings it down and over its neighbours together. Click a
             name to turn the flower.
           </p>
         </>

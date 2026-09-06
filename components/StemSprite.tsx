@@ -32,7 +32,7 @@ export function StemSprite({ placed, layout, seed }: Props) {
         placed.rotationDeg,
       )})`}
       data-stem={placed.item.id}
-      data-ring={placed.ring}
+      data-level={placed.level}
       data-n={placed.n}
     >
       {hasArtwork ? (

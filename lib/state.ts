@@ -4,7 +4,7 @@
  */
 
 import { getItemOrFallback } from "./catalog";
-import { placementSlots, ringForIndex } from "./engine";
+import { planStems } from "./engine";
 import { rand } from "./rng";
 import type { BouquetState, Stem } from "./types";
 
@@ -24,31 +24,30 @@ export const DEFAULT_STATE: BouquetState = {
 };
 
 /**
- * Recompute each stem's spiral ordinal and ring.
+ * Recompute each stem's spiral ordinal and the row it stands in.
  *
  * The array keeps the order stems were added — that is what the stem list in
  * the UI shows — while `index`/`ring` record where the engine will actually
  * place each one. Running this after every mutation keeps the persisted state
  * consistent with what the engine computes, so a state round-tripped through a
  * share link renders identically without needing a repair pass.
+ *
+ * The row depends on the seed, because which stems the spiral throws to the
+ * front of the bouquet does, so the seed has to come in with the stems.
  */
-export function normalizeStems(stems: Stem[]): Stem[] {
+export function normalizeStems(stems: Stem[], seed: number): Stem[] {
   const next = stems.slice();
-  for (const slot of placementSlots(stems)) {
+  for (const entry of planStems({ seed, stems })) {
     // `index` is the ordinal across the bouquet, which is what sets the golden
-    // angle; `ring` counts within the stem's own category band, which is what
-    // sets its radius and scale.
-    next[slot.stemIndex] = {
-      ...next[slot.stemIndex],
-      index: slot.n,
-      ring: ringForIndex(slot.bandIndex),
-    };
+    // angle; `ring` is the row, which is what sets the stem's depth, its height
+    // and its size together.
+    next[entry.stemIndex] = { ...next[entry.stemIndex], index: entry.n, ring: entry.level };
   }
   return next;
 }
 
 export function normalizeState(state: BouquetState): BouquetState {
-  return { ...state, tiePoint: TIE_POINT, stems: normalizeStems(state.stems) };
+  return { ...state, tiePoint: TIE_POINT, stems: normalizeStems(state.stems, state.seed) };
 }
 
 /**
@@ -71,13 +70,13 @@ export function addStem(state: BouquetState, itemId: string): BouquetState {
     index: state.stems.length,
     depth: 0,
   };
-  return { ...state, stems: normalizeStems([...state.stems, stem]) };
+  return { ...state, stems: normalizeStems([...state.stems, stem], state.seed) };
 }
 
 export function removeStemAt(state: BouquetState, stemIndex: number): BouquetState {
   if (stemIndex < 0 || stemIndex >= state.stems.length) return state;
   const stems = state.stems.filter((_, i) => i !== stemIndex);
-  return { ...state, stems: normalizeStems(stems) };
+  return { ...state, stems: normalizeStems(stems, state.seed) };
 }
 
 /** Remove the most recently added stem of a given item. Powers the catalog's minus button. */
@@ -97,14 +96,17 @@ export function countOfItem(state: BouquetState, itemId: string): number {
 }
 
 /** How far a stem may be pulled forward or pushed back by hand. */
-export const MAX_DEPTH = 4;
+export const MAX_DEPTH = 3;
 
 /**
- * Move one stem through the stack, front to back.
+ * Move one stem forward or back through the rows of the bouquet.
  *
- * Only the paint order changes — the stem keeps its place in the spiral, so
- * bringing a rose forward slides it over the lily next to it without anything
- * moving sideways.
+ * This moves the stem, it does not just repaint it. A row settles a stem's
+ * depth, its height and its size at once, so bringing a rose forward slides it
+ * over the lily next to it AND brings it down toward the rim of the wrap — the
+ * two cannot come apart, which is the point. Because the rows are then re-laid
+ * out, the stems it moves past shuffle along to make room instead of being
+ * overlapped.
  */
 export function nudgeDepth(state: BouquetState, stemIndex: number, by: number): BouquetState {
   const stem = state.stems[stemIndex];
@@ -113,7 +115,7 @@ export function nudgeDepth(state: BouquetState, stemIndex: number, by: number): 
   if (depth === stem.depth) return state;
   const stems = state.stems.slice();
   stems[stemIndex] = { ...stem, depth };
-  return { ...state, stems };
+  return { ...state, stems: normalizeStems(stems, state.seed) };
 }
 
 /** Cycle a single stem through its facings, without disturbing the arrangement. */
