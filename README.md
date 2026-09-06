@@ -19,14 +19,16 @@ Everything else follows from these.
 **1. Size from real millimetres, never from pixels.**
 
 ```
-sprite width on screen = (realWidthMm / 400) * canvasWidth * scale
+sprite width on screen = (realWidthMm / windowWidthMm) * canvasWidth * scale
 ```
 
-The canvas is a window onto 400mm of real world. A 180mm sunflower is 2.4× a
-75mm rose on screen because that is what it is in life, and it stays 2.4× when
-the artwork is swapped in, whatever resolution the artwork happens to be. The
-catalog's millimetre figures come from the reference size table; the ruler under
-the stage is the real one.
+The canvas is a window onto the real world, 400mm across unless the bouquet
+needs more. A 180mm sunflower is 2.4× a 75mm rose on screen because that is what
+it is in life, whatever the window is and whatever resolution the artwork
+happens to be. The catalog's millimetre figures come from the reference size
+table; the ruler under the stage is the real one. `scale` is the term the rule
+leaves free, and it is where perspective across the rows lives, and where a
+sprig of gypsophila broken to fit its gap lives.
 
 **2. One seed, no `Math.random` in the render path.**
 
@@ -52,107 +54,112 @@ images — it returns numbers, and the renderer draws them.
   from the head position the arrangement asks for, so both statements stay true
   at once: every anchor is on the tie point, and every head is where it belongs.
 
+### Composition
+
+`lib/compose.ts` decides where every stem actually goes. It is a separate
+problem from the engine's structure — which row a stem stands in, how deep the
+bouquet is, how big each head is drawn — and running the two together is what
+made the old arrangement read as an arrangement rather than as a bouquet: every
+stem went to the one position its row had left for it, on an even pitch, and no
+position was ever compared against another.
+
+A florist does not do that. They put the biggest bloom down slightly off centre,
+gather the next few around it, leave a space, fill the space with something
+small, and stand back — repeatedly. What they are doing is generating a position
+and **judging** it against everything already in their hand. So for each stem in
+turn, 64 candidate positions are sampled and every one is scored against the
+arrangement so far, and the best is taken.
+
+**Nothing here is a collision test.** A bouquet with no collisions and nothing
+else going for it is exactly the sparse, even, mirror-imaged thing this
+replaced.
+
+| the judgement | what it asks |
+| --- | --- |
+| `overlap` | is it attached to its neighbour, in the band that reads as a bouquet |
+| `crowding` | is it swallowing anything, or being swallowed |
+| `cluster` | are two or three of its own group within touching distance |
+| `isolation` | is its nearest neighbour more than a head and a half away |
+| `gap` | how empty was this spot before it went into it |
+| `density` | does it move the local density toward full-in-the-heart, thin-at-the-rim |
+| `silhouette` | is it inside the outline its role is allowed |
+| `balance` | does the bouquet's weight end up near where it is meant to lean |
+| `symmetry` | is it sitting where another head's reflection would be |
+| `uniformity` | is its gap the same as everyone else's |
+| `flatTop` | does its top edge line up with the others' |
+| `edgeSize` | is a big bloom being hung off the rim |
+| `gathers` | is it gathering round a flower the bouquet is built around |
+| `blocksAnchor` | would it cover one |
+| `floor`, `lean` | **hard**: nothing sinks into the wrap, nothing lies on its side |
+
+The weights are named constants at the top of the file so they can be tuned
+against a render rather than argued about.
+
+- **Candidates are generated beside a neighbour**, at a distance chosen to land
+  in the overlap band, three times in four. Sampling the whole face evenly, a
+  late stem in a full bouquet has only a sliver of the face left that is any
+  good, and forty even samples miss it — every one comes back ruinous and the
+  best of a bad lot gets used. The rest are sampled free, because a bouquet also
+  needs stems that start a group rather than joining one.
+- **A candidate that has landed on something is nudged clear** rather than
+  thrown away. Most positions in a full bouquet are nearly right, and a head
+  that would swallow a neighbour is usually a finger's width from one that would
+  not.
+- **When every candidate is struck out**, the band is swept end to end at every
+  height the row allows and the emptiest place wins. Taking the least ruinous of
+  the ruinous ones is the worst answer there is.
+- **The bouquet is built in small groups**, one per anchor, and a stem looks for
+  its neighbours in its own group first and sits closer to them than the groups
+  sit to each other. Evenly spread flowers look measured out; this is what makes
+  some of them press together and leaves room between.
+- **Every stem has its own preferred gap**, drawn from the seed. Scoring every
+  candidate against one ideal collapses the variation straight back out: five
+  identical roses all want the same gap, all get it, and the row is a picket
+  fence.
+- **The bouquet leans**, by up to a tenth of its width. A composition balanced
+  exactly about its axis reads as a diagram of a bouquet.
+
 ### Rows
 
-A bouquet is built in rows, not in a cloud, and this is the centre of the whole
-engine. Front to back, a hand-tie is a small number of distinct courses: the
-front row sits down on the rim of the wrap and hides everything behind it, and
-each row back sits a little higher, a little smaller, and is partly covered by
-the row in front.
+Front to back, a hand-tie is a small number of distinct courses: the front row
+sits down on the rim of the wrap and hides everything behind it, and each row
+back sits a little higher, a little smaller, and is partly covered by the row in
+front.
 
 So depth is **discrete**. A stem's *level* is a whole number, 0 is the front row,
 and it settles three things at once:
 
 | level | paint order | height | size |
 | --- | --- | --- | --- |
-| 0 | painted last, over everything | lowest, down on the rim | full size |
-| *n* back | painted earlier | a row step higher | 12% smaller per row |
+| 0 | painted last, over everything | lowest, down on the rim | a little over life size |
+| *n* back | painted earlier | a row step higher | a little under |
 
 Because one number drives all three they cannot contradict each other. What is
 drawn in front is always what sits lower; what shows above the rest is always
-what is behind. A continuous dome of jittered positions could only ever
-*approximate* that, and it got it wrong often enough to see: two flowers at
-nearly the same depth would land on top of each other with no reason for one to
-be over the other, and a small bloom would end up entirely behind a big one.
+what is behind.
 
 - **Rows are ordered by head size, smallest to the front.** Not a matter of
   taste — it is the only thing that keeps every flower visible. A head in a back
   row shows the crescent of itself that clears the head in front, and that
-  crescent is `rowStep + radiusBack - radiusFront` tall. Put an open lily in
-  front of a rose bud and it goes to nothing: a flower you have paid for and
-  cannot see. Small to large makes the crescent at least a full row step, always.
-  It is also how a hand-tie is built — statement blooms up and back, buds and
-  small heads facing out over the rim. The spiral still has a say, but only
-  among heads within about a quarter of the mean width of each other.
-- **The row step is one number and it decides everything.** At 1.15 ring
-  spacings, a little over half of every flower shows above the row in front of
-  it. Too little and the rows collapse into one plane; too much and the bouquet
-  becomes a staircase. It tapers to the sides, where a dome seen head-on crowds
-  its rows together, and the total lift is capped so a deep bouquet of big
-  flowers cannot walk out of the frame.
-- **Rows are brick-bonded.** Neighbouring rows are offset half a spacing, so
-  every flower in a back row stands in the gap between two in front of it. Laid
-  out on the same positions row after row, the rows become columns and the back
-  ones might as well not be there.
-- **Each row is spaced by the stems actually in it**, pair by pair:
-  `((wa + wb) / 2) * (1 - overlap)`. An average for the whole category was the
-  last place a big bloom and a small one could still collide, leaving an open
-  lily and a rose bud the same gap — far too much for one and nowhere near
-  enough for the other. How much overlap is allowed is per role: two flowers
-  overlapping by half means one of them was a waste of money, two fronds
-  overlapping by half is what foliage looks like.
-- **Rows are centred on what they look like**, not on where their stems' middles
-  fall. A row ending in an open lily on one side and a bud on the other has far
-  more of itself on the lily's side.
-- **A stem may stand a little proud of its row**, by well under half a row step,
-  according to where the spiral put it front to back. Otherwise every row is a
-  straight line and the two sides of the bouquet are mirror images.
-- **The front row follows the mouth of the wrap.** It dips toward the rim, most
-  in the middle and not at all at the sides, weighted by `1 - u²` — the same
-  family as the rim's own `2t(1-t)`, so the two curves never cross. A uniform
-  drop put them on a collision course: a flower both low and off to one side
-  landed under a rising side point and vanished behind the paper.
-
-### The three roles
-
-Flowers, filler and greenery are laid out separately and do not disturb each
-other. `CATEGORY_LEVELS` gives each one its own width, its own spacing, its own
-overlap, how much of the middle it leaves empty, how far it is pushed toward the
-back rows, and how much of the rim's dip it takes.
-
-- **Flowers** are the face: they fill their rows from the middle outward,
-  brick-bonded so nothing hides behind the bloom in front of it.
-- **Filler is not laid out at all.** It is tucked into the gaps the flowers have
-  already left, which is the only place gypsophila is ever seen: the triangular
-  void where two flowers in a row meet one in the row behind, the seam between
-  two neighbours, the ring of it around the outside edge. A gap is *named* by
-  the seats it lies between and resolved to a position only once the flowers
-  themselves are placed, so the plan stays free of the canvas and the filler
-  follows the flowers exactly however the fit passes move them. Gaps are taken
-  most-open first and a row at a time rather than a row at a stretch, so three
-  stems of gypsophila land at three different depths instead of filling the
-  front row and leaving the rest bare. Given rows of its own, filler could only
-  ever end up behind blooms as often as between them, and what showed was a haze
-  around the outside rather than a sparkle through the middle.
-- **Greenery** is the background: wider than the flowers, weighted to the back
-  rows, and held out of the middle. Past a ceiling it overlaps *itself* rather
-  than spreading further — twelve stems of eucalyptus given all the room they
-  ask for fan out into a peacock's tail five times the width of the flowers they
-  are meant to stand behind.
-- **Foliage comes forward only outside the flowers.** `front-greens` used to be
-  a blind one-in-three coin, which promoted whichever green it landed on —
-  including a near-upright fern painted over every flower, which is not foliage
-  in front of a bouquet but a fern lying on top of one. A green is drawn in
-  front only when it stands in the front row *and* reaches past the outermost
-  flower.
-- **Nothing a category does moves another.** Ring spacing is measured over the
-  flowers; the widest flower row sets the mass; the dome every stem rides is
-  measured across the *flowers*. Adding a stem of eucalyptus therefore leaves
-  every flower in the bouquet exactly where it was, which `verify:engine`
-  asserts to the pixel.
-- **The golden angle stays global.** Stem *n* sits at `n * 137.5°` across the
-  whole bouquet whatever role it plays, so no two stems anywhere point the same
-  way.
+  crescent is `rowStep + radiusBack − radiusFront` tall. Put an open lily in
+  front of a rose bud and it goes to nothing.
+- **Depth scaling is subtle**: 1.06 at the front, 0.92 at the back, with a
+  per-stem variation of a few percent on top and anchors a touch larger again. A
+  steep falloff shrinks the back of the arrangement into a different bouquet
+  behind the front of it, which is the opposite of depth: what you notice is the
+  size, not the distance.
+- **The row step is measured against the heads**, at 0.6 of a head width, so a
+  little under half of every flower shows above the row in front of it. Measured
+  in ring spacings — an RMS a few small heads drag down — a bouquet of roses and
+  carnations stepped its rows further apart than a rose is wide, and the middle
+  of every arrangement came out hollow.
+- **A stem may stand off its row's line** by under a third of a step, so a row
+  is a rhythm rather than a ruled line.
+- **The front row follows the mouth of the wrap**, dipping toward the rim in the
+  middle and sweeping back up at the sides — both, because the collar is drawn
+  around the flowers and its mouth rises to a point at each side. A stem far out
+  and low sits under a rising side point, and no collar can be drawn that both
+  holds the bouquet and does not swallow it.
 
 ### Cut length and fit
 
@@ -166,14 +173,23 @@ back rows, and how much of the rim's dip it takes.
   nothing else.
 - **Ring spacing** comes from the RMS head width of the *flowers*, which leans
   toward the big heads in the middle where the room is needed.
-- **Fit pass**: three scalars, each solved in closed form from a first placement
-  pass, rein the arrangement in — one for the frame's width, one for its top, and
-  one that keeps every stem's lean within its role's limit. Adding a thirtieth
-  stem tightens the bouquet instead of pushing flowers off the canvas. Greens are
-  allowed to overhang more than focals, because that is how these photographs are
-  cropped. The vertical fit shortens *stems*, so it is floored: a bouquet that is
-  still too tall is one whose rows are too tall, and the row step is capped for
-  exactly that.
+- **The window pulls back for a big bouquet.** Eleven sunflowers make an
+  arrangement about 600mm across; held to a 400mm window it does not become a
+  smaller bouquet, it becomes eleven full-sized sunflowers piled on top of each
+  other, because positions can be squeezed and heads cannot. Every millimetre
+  still converts through one number, so a 180mm sunflower is still 2.4× a 75mm
+  rose whatever the window is. Measured over the **flowers** alone, so a stem of
+  eucalyptus cannot change the scale of the whole bouquet; foliage running off
+  the edge of the frame is what these photographs look like anyway.
+- **The composition is born inside the frame.** Each role's reach and the row
+  step are capped to what the canvas will take, so the fit passes are a backstop
+  rather than a step. Composing wider and letting a fit squeeze the result is not
+  the same thing at all: a fit scales positions and not head sizes, so a bouquet
+  composed 30% too wide comes back with every overlap 30% deeper than the
+  composition chose — which is exactly what it used to do. The three fits (width,
+  height, lean) remain, and the vertical one shrinks only the part of the bouquet
+  above the front row's line, so reining in a tall bouquet cannot push its front
+  row into the paper.
 
 ### Layers and depth
 
@@ -375,6 +391,22 @@ The PNG reader is `scripts/lib/png.ts` — about a hundred lines over Node's own
 zlib, covering every colour type and bit depth in the base spec plus palette
 transparency, rather than a dependency for one build script. `npm run verify:anchors` checks it against PNGs it builds itself with
 known anchors, so the artwork can be trusted the first time it lands.
+
+### Seeing the composition
+
+The **Guides** toggle in the stage draws everything the composition was thinking
+about, and it is the only honest way to tune a scoring function — you cannot
+read one, you have to watch it choosing.
+
+- every position that was considered for every stem, coloured by what it scored
+- the outline each role was judged against
+- the circle each head is treated as, with the anchors ringed in orange
+- each stem's row, group and final score, and a `!` if every candidate for it
+  was struck out and the fallback sweep had to run
+- the line from each head back to the tie point, which is its stem
+
+It is marked `data-guides` and the PNG export strips it, so it never reaches a
+saved image.
 
 ## Build order
 

@@ -6,12 +6,14 @@ import { CANVAS_HEIGHT, CANVAS_WIDTH, SVG_ROOT_ID } from "@/lib/canvas";
 import {
   computeLayout,
   depthRuns,
+  describeComposition,
   placeStems,
   px,
   spriteWidthPx,
   type Layout,
   type PlacedStem,
 } from "@/lib/engine";
+import type { Frame } from "@/lib/compose";
 import { rand, randSigned } from "@/lib/rng";
 import {
   LAYER_ORDER,
@@ -179,7 +181,9 @@ export function BouquetCanvas({ state, className, showGuides = false }: Props) {
         </g>
       ))}
 
-      {showGuides ? <Guides placed={placed} layout={layout} /> : null}
+      {showGuides ? (
+        <Guides placed={placed} layout={layout} frame={describeComposition(state, layout)} />
+      ) : null}
     </svg>
   );
 }
@@ -290,64 +294,140 @@ export function StemBundle({
 }
 
 /**
- * The engine, made visible: the tie point, the row each stem stands in, and the
- * path the golden angle walks from stem to stem. Marked `data-guides` so the
- * PNG export can drop it without knowing anything else about the drawing.
+ * The engine, made visible.
+ *
+ * Everything the composition was thinking about: the outline it judged
+ * positions against, the circle it treats each head as, which flowers the
+ * bouquet was built around, which row every stem stands in, and — the one that
+ * actually matters for tuning — every position that was considered for a stem
+ * and what it scored. A scoring function cannot be tuned by reading it; it has
+ * to be watched choosing.
+ *
+ * Marked `data-guides` so the PNG export drops it without knowing anything else
+ * about the drawing.
  */
-function Guides({ placed, layout }: { placed: PlacedStem[]; layout: Layout }) {
-  // One polyline per row, drawn through the heads that stand in it, so the
-  // courses the engine built are visible as courses. Back rows are faint.
+function Guides({
+  placed,
+  layout,
+  frame,
+}: {
+  placed: PlacedStem[];
+  layout: Layout;
+  frame: Frame;
+}) {
+  const deepest = placed.reduce((back, s) => Math.max(back, s.level), 0);
   const rows = new Map<number, PlacedStem[]>();
-  for (const stem of placed) {
-    const bucket = rows.get(stem.level);
-    if (bucket) bucket.push(stem);
-    else rows.set(stem.level, [stem]);
-  }
+  for (const stem of placed) rows.set(stem.level, [...(rows.get(stem.level) ?? []), stem]);
 
-  const spiral = placed
-    .map((s, i) => `${i === 0 ? "M" : "L"} ${px(s.headX)} ${px(s.headY)}`)
-    .join(" ");
+  // What every candidate scored, over the whole bouquet, so the colour scale
+  // means the same thing everywhere.
+  const scores = placed.flatMap((s) => s.composition?.tried.map((t) => t.score) ?? []);
+  const worst = scores.length ? Math.min(...scores) : 0;
+  const best = scores.length ? Math.max(...scores) : 1;
+  const heat = (score: number) => {
+    const t = best > worst ? (score - worst) / (best - worst) : 0.5;
+    return `hsl(${px(t * 110)} 80% 55%)`;
+  };
 
   return (
     <g data-guides="true" pointerEvents="none">
+      {/* Every position that was considered, coloured by what it scored. */}
+      {placed.map((stem) =>
+        (stem.composition?.tried ?? []).map((at, i) => (
+          <circle
+            key={`${stem.key}-${i}`}
+            cx={px(layout.tieX + at.x)}
+            cy={px(layout.tieY + at.y)}
+            r={1.6}
+            fill={heat(at.score)}
+            opacity={0.5}
+          />
+        )),
+      )}
+
+      {/*
+        The outline each role was judged against, centred on the height that
+        role carries its heads to — read off the stems, since the frame keeps
+        the shape and the stems keep the height.
+      */}
+      {(["focal", "green"] as const).map((category) => {
+        const of = placed.filter((s) => s.item.category === category);
+        if (of.length === 0) return null;
+        const middle =
+          of.reduce((sum, s) => sum + s.headY + s.risePx, 0) / of.length -
+          of.reduce((sum, s) => sum + s.risePx, 0) / of.length;
+        return (
+          <ellipse
+            key={category}
+            cx={layout.tieX}
+            cy={px(middle)}
+            rx={px(frame.massHalf * frame.spread[category])}
+            ry={px(frame.massTop * frame.spread[category])}
+            fill="none"
+            stroke={category === "focal" ? "#d7a05a" : "#93a983"}
+            strokeWidth={1}
+            strokeDasharray="6 8"
+            opacity={0.45}
+          />
+        );
+      })}
+
+      {/* The circle each head is treated as, and which row it stands in. */}
+      {placed.map((stem) => (
+        <g key={stem.key}>
+          <circle
+            cx={px(stem.headX)}
+            cy={px(stem.headY)}
+            r={px(stem.widthPx / 2)}
+            fill="none"
+            stroke={stem.isAnchor ? "#e8643c" : "#8fb0d8"}
+            strokeWidth={stem.isAnchor ? 2 : 1}
+            opacity={stem.isAnchor ? 0.9 : 0.45}
+          />
+          {/* Stem origin: every anchor point is on the tie. */}
+          <line
+            x1={px(stem.headX)}
+            y1={px(stem.headY)}
+            x2={layout.tieX}
+            y2={layout.tieY}
+            stroke="#8fb0d8"
+            strokeWidth={0.5}
+            opacity={0.25}
+          />
+          <text
+            x={px(stem.headX)}
+            y={px(stem.headY + 4)}
+            fill={stem.isAnchor ? "#e8643c" : "#c9c2b6"}
+            fontSize={11}
+            textAnchor="middle"
+            fontFamily="var(--font-mono), monospace"
+          >
+            {`L${stem.level}·c${stem.cluster}${stem.composition ? `·${stem.composition.score.toFixed(1)}` : ""}${
+              stem.composition?.struck ? "!" : ""
+            }`}
+          </text>
+        </g>
+      ))}
+
+      {/* Where each row's line runs. */}
       {[...rows]
         .sort((a, b) => b[0] - a[0])
         .map(([level, stems]) => {
           const across = [...stems].sort((a, b) => a.headX - b.headX);
-          const d = across
-            .map((s, i) => `${i === 0 ? "M" : "L"} ${px(s.headX)} ${px(s.headY)}`)
-            .join(" ");
+          if (across.length < 2) return null;
           return (
-            <g key={level}>
-              {across.length > 1 ? (
-                <path
-                  d={d}
-                  fill="none"
-                  stroke="#93a983"
-                  strokeWidth={1.5}
-                  strokeDasharray="4 6"
-                  opacity={0.6 - level * 0.12}
-                />
-              ) : null}
-              <text
-                x={px(across[0].headX + 8)}
-                y={px(across[0].headY - 8)}
-                fill="#93a983"
-                fontSize={11}
-                opacity={0.7 - level * 0.12}
-                fontFamily="var(--font-mono), monospace"
-              >
-                {`L${level}`}
-              </text>
-            </g>
+            <path
+              key={level}
+              d={across.map((s, i) => `${i === 0 ? "M" : "L"} ${px(s.headX)} ${px(s.headY)}`).join(" ")}
+              fill="none"
+              stroke="#93a983"
+              strokeWidth={1}
+              strokeDasharray="3 5"
+              opacity={0.5 - (level / Math.max(1, deepest)) * 0.25}
+            />
           );
         })}
-      {placed.length > 1 ? (
-        <path d={spiral} fill="none" stroke="#d7a05a" strokeWidth={1.5} opacity={0.35} />
-      ) : null}
-      {placed.map((s) => (
-        <circle key={s.key} cx={px(s.headX)} cy={px(s.headY)} r={3} fill="#d7a05a" opacity={0.8} />
-      ))}
+
       <g stroke="#d7a05a" strokeWidth={1.5}>
         <line x1={layout.tieX - 14} y1={layout.tieY} x2={layout.tieX + 14} y2={layout.tieY} />
         <line x1={layout.tieX} y1={layout.tieY - 14} x2={layout.tieX} y2={layout.tieY + 14} />

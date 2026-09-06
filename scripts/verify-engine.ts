@@ -143,7 +143,14 @@ check(
   "a course is built in roughly square rows",
   levelCount(1) === 1 && levelCount(4) === 2 && levelCount(9) === 3 && levelCount(30) === 4,
 );
-check("scale drops 12% per row back", Math.abs(scaleForLevel(2) - 0.7744) < 1e-9);
+check(
+  "a stem further back is drawn smaller, subtly",
+  scaleForLevel(0, 4) > scaleForLevel(1, 4) &&
+    scaleForLevel(1, 4) > scaleForLevel(3, 4) &&
+    scaleForLevel(0, 4) <= 1.1 &&
+    scaleForLevel(3, 4) >= 0.9,
+  `front ${scaleForLevel(0, 4).toFixed(2)}, back ${scaleForLevel(3, 4).toFixed(2)}`,
+);
 
 const RANK: Record<StemCategory, number> = { focal: 0, filler: 1, green: 2 };
 check(
@@ -159,23 +166,40 @@ check(
 // three separate consequences, because each was wrong at some point.
 
 {
+  // Stated over the FLOWERS, which are what the rows are a composition of.
+  // Foliage rides the same ladder but is also swept up at the sides of the
+  // bouquet, and a row of it out at the edges legitimately stands higher than a
+  // row of it behind the middle — which is the dome doing its job, not the rows
+  // failing to.
   let broken = "";
   for (const { name, state } of EVERY) {
-    const stems = lay(state).placed;
-    for (const category of ["focal", "filler", "green"] as StemCategory[]) {
-      const of = stems.filter((s) => s.item.category === category);
-      if (of.length === 0) continue;
-      const rows = [...new Set(of.map((s) => s.level))].sort((x, y) => x - y);
-      for (let i = 1; i < rows.length && !broken; i += 1) {
-        const front = of.filter((s) => s.level === rows[i - 1]);
-        const back = of.filter((s) => s.level === rows[i]);
-        if (mean(back.map((s) => s.headY)) >= mean(front.map((s) => s.headY))) {
-          broken = `${name} ${category} row ${rows[i]} does not stand above row ${rows[i - 1]}`;
-        }
+    const of = lay(state).placed.filter((s) => s.item.category === "focal");
+    if (of.length === 0) continue;
+    const rows = [...new Set(of.map((s) => s.level))].sort((x, y) => x - y);
+    for (let i = 1; i < rows.length && !broken; i += 1) {
+      const front = of.filter((s) => s.level === rows[i - 1]);
+      const back = of.filter((s) => s.level === rows[i]);
+      if (mean(back.map((s) => s.headY)) >= mean(front.map((s) => s.headY))) {
+        broken = `${name} flower row ${rows[i]} does not stand above row ${rows[i - 1]}`;
       }
     }
   }
   check("each row back stands above the one in front", broken === "", broken);
+
+  // And foliage keeps to the back of the ladder, which is the other half of it.
+  let forward = "";
+  for (const { name, state } of EVERY) {
+    const stems = lay(state).placed;
+    const greens = stems.filter((s) => s.item.category === "green");
+    const focals = stems.filter((s) => s.item.category === "focal");
+    if (greens.length === 0 || focals.length === 0) continue;
+    if (mean(greens.map((s) => s.level)) <= mean(focals.map((s) => s.level))) {
+      forward = `${name}: greenery averages row ${mean(greens.map((s) => s.level)).toFixed(
+        1,
+      )}, flowers row ${mean(focals.map((s) => s.level)).toFixed(1)}`;
+    }
+  }
+  check("greenery keeps to the back of the ladder", forward === "", forward);
 }
 
 {
@@ -192,22 +216,36 @@ check(
 }
 
 {
-  // The user's rule, verbatim: what is drawn in front is what sits lower, and
-  // what shows above the rest is what is behind. Paint order comes from the row,
-  // and the row comes from the same number as the height, so the two cannot come
-  // apart — this asserts they actually don't. Stated over the flowers, which are
-  // what "sits lower" is about; foliage and filler have their own heights within
-  // a row on purpose.
+  // What is drawn in front is what sits lower, and what shows above the rest is
+  // what is behind. Not as a strict pairwise rule any more — the composition is
+  // asked for a vertical rhythm and for a bottom edge that sweeps up at the
+  // sides, and both of those legitimately let a front-row flower at the edge
+  // ride above a second-row one in the middle. What must not happen is a
+  // CROSSING BIG ENOUGH TO READ: a flower drawn in front of another and clearly
+  // standing above it.
   let broken = "";
   for (const { name, state } of EVERY) {
+    const stems = lay(state).placed.filter((s) => s.item.category === "focal");
+    if (stems.length < 2) continue;
+    // How far apart the rows stand here, measured rather than assumed.
+    const rowMean = new Map<number, number[]>();
+    for (const s of stems) rowMean.set(s.level, [...(rowMean.get(s.level) ?? []), s.headY]);
+    const heights = [...rowMean.entries()]
+      .sort((a, b) => a[0] - b[0])
+      .map(([, ys]) => mean(ys));
+    const step =
+      heights.length > 1
+        ? Math.abs(heights[0] - heights[heights.length - 1]) / (heights.length - 1)
+        : Infinity;
+
     const order = paintOrder(lay(state).placed).filter((s) => s.item.category === "focal");
     for (let i = 1; i < order.length && !broken; i += 1) {
       const behind = order[i - 1];
       const infront = order[i];
-      if (infront.level === behind.level) continue;
-      if (infront.level > behind.level) broken = `${name}: flowers painted out of row order`;
-      else if (infront.headY < behind.headY) {
-        broken = `${name}: ${infront.item.id} is painted in front of ${behind.item.id} but sits above it`;
+      if (infront.level >= behind.level) continue;
+      const above = behind.headY - infront.headY;
+      if (above > step * 0.75) {
+        broken = `${name}: ${infront.item.id} in row ${infront.level} is painted over ${behind.item.id} in row ${behind.level} while standing ${above.toFixed(0)}px above it, on a ${step.toFixed(0)}px row step`;
       }
     }
   }
@@ -250,7 +288,9 @@ check(
   let broken = "";
   for (const { name, state } of EVERY) {
     for (const stem of lay(state).placed) {
-      if (stem.scale > scaleForLevel(stem.level) + 1e-12) broken = `${name} ${stem.item.id}`;
+      const nominal =
+        scaleForLevel(stem.level, stem.levels) * (stem.isAnchor ? 1.06 : 1) * 1.04 + 1e-9;
+      if (stem.scale > nominal) broken = `${name} ${stem.item.id} at ${stem.scale.toFixed(3)}`;
     }
   }
   check("a stem further back is drawn smaller", broken === "", broken);
@@ -318,7 +358,13 @@ function buriedFraction(stem: PlacedStem, layer: PlacedStem[]): number {
 {
   // Neighbours in a row overlap by design, but a row is a row: two flowers side
   // by side must not be stacked on each other.
-  const MOST_ROW_OVERLAP = 0.45;
+  //
+  // Measured against the SMALLER of the two, which is deliberately unforgiving
+  // where the sizes differ: for a carnation beside a lily, 50% means the
+  // carnation's own centre is still outside the lily's edge, with half of it
+  // showing. What is actually hidden is the check above, and it is the one to
+  // read; this one is here to catch two flowers of a size stacked on each other.
+  const MOST_ROW_OVERLAP = 0.55;
   let worst = 0;
   let where = "";
   for (const { name, state } of EVERY) {
@@ -326,12 +372,23 @@ function buriedFraction(stem: PlacedStem, layer: PlacedStem[]): number {
     for (const stem of focals) {
       for (const other of focals) {
         if (other === stem || other.level !== stem.level) continue;
-        const gap = Math.abs(other.headX - stem.headX);
-        const touching = (stem.widthPx + other.widthPx) / 2;
-        const overlap = (touching - gap) / Math.min(stem.widthPx, other.widthPx);
-        if (overlap > worst) {
-          worst = overlap;
-          where = `${name}: ${stem.item.id} and ${other.item.id} in row ${stem.level}`;
+        // How much of the one BEHIND is lost under the one in front, the same
+        // way the composition measures it and for the same reason. A rose
+        // tucked under the edge of a lily overlaps it enormously by any
+        // symmetric measure, because the rose's own centre is well inside the
+        // lily's disc — but the rose is in front, and what it costs the lily is
+        // the ninth of it the rose is big enough to cover. Judged
+        // symmetrically, this check demanded a hole around every large bloom.
+        const front = stem.headY > other.headY ? stem : other;
+        const back = front === stem ? other : stem;
+        const d = Math.hypot(other.headX - stem.headX, other.headY - stem.headY);
+        const rb = back.widthPx / 2;
+        const rf = front.widthPx / 2;
+        const deep = Math.max(0, Math.min(1, (rf + rb - d) / (2 * Math.min(rf, rb))));
+        const hides = deep * Math.min(1, (rf / rb) * (rf / rb));
+        if (hides > worst) {
+          worst = hides;
+          where = `${name}: ${front.item.id} over ${back.item.id} in row ${stem.level}`;
         }
       }
     }
@@ -342,6 +399,194 @@ function buriedFraction(stem: PlacedStem, layer: PlacedStem[]): number {
     `worst ${(worst * 100).toFixed(0)}% — ${where}`,
   );
   console.log(`        worst ${(worst * 100).toFixed(0)}% (limit ${MOST_ROW_OVERLAP * 100}%) — ${where}`);
+}
+
+/* -- composition ----------------------------------------------------------- */
+
+/**
+ * The checks this section exists for, and they run the other way round from
+ * every other check here: they assert that the arrangement is NOT regular.
+ *
+ * A bouquet that satisfies every rule about bounds and collisions and nothing
+ * else is a diagram of a bouquet — evenly spaced, mirrored about its axis, flat
+ * across the top, thin in the middle. Every one of those passes a collision
+ * test perfectly well, so each has to be measured for directly or it comes
+ * straight back.
+ */
+{
+  const spread = (xs: number[]) => {
+    if (xs.length < 2) return 0;
+    const m = mean(xs);
+    return Math.sqrt(mean(xs.map((x) => (x - m) ** 2))) / Math.max(1e-6, m);
+  };
+  const nearest = (stems: PlacedStem[]) =>
+    stems.map((s) =>
+      Math.min(
+        ...stems.filter((o) => o !== s).map((o) => Math.hypot(o.headX - s.headX, o.headY - s.headY)),
+      ),
+    );
+
+  let evenest = Infinity;
+  let evenestAt = "";
+  let mirroredAt = "";
+  let flattest = Infinity;
+  let flattestAt = "";
+  let denserOut = "";
+  let bigAtEdge = "";
+  let lonely = "";
+
+  for (const { name, state } of EVERY) {
+    const { layout: l, placed } = lay(state);
+    const focals = placed.filter((s) => s.item.category === "focal");
+    // Composition is a statement about a composition. Under half a dozen
+    // flowers there is not one to measure — three roses and two buds have no
+    // clusters, no heart and no rim, and every statistic over them is noise.
+    if (focals.length < 6) continue;
+
+    // Not a grid: some flowers pressed together, other places left with room.
+    //
+    // Measured as how much the CROWDING varies from flower to flower, not how
+    // much the gaps do. Gaps cannot see it: a bouquet built in small groups has
+    // every flower's nearest neighbour inside its own group, so every one of
+    // those gaps is a tight one and they all look the same. What differs is how
+    // many neighbours a flower has — three in the middle of a group, one at the
+    // edge of it, which is what "clustered" means.
+    const crowding = focals.map(
+      (s) =>
+        focals.filter(
+          (o) =>
+            o !== s &&
+            Math.hypot(o.headX - s.headX, o.headY - s.headY) <
+              ((s.widthPx + o.widthPx) / 2) * 1.4,
+        ).length,
+    );
+    if (spread(crowding) < evenest) {
+      evenest = spread(crowding);
+      evenestAt = name;
+    }
+    const gaps = nearest(focals);
+    if (spread(gaps) < 0.05) {
+      evenestAt = `${name}: every gap the same, spread ${spread(gaps).toFixed(3)}`;
+      evenest = 0;
+    }
+
+    // Not a mirror. How near each head sits to where another head's reflection
+    // would be, in head widths — near zero for every head is a pattern.
+    const reflected = mean(
+      focals.map((s) => {
+        const flipped = 2 * l.tieX - s.headX;
+        return Math.min(
+          ...focals.map(
+            (o) => Math.hypot(o.headX - flipped, o.headY - s.headY) / Math.max(1, s.widthPx),
+          ),
+        );
+      }),
+    );
+    if (reflected < 0.18) {
+      mirroredAt = `${name}: heads sit ${reflected.toFixed(2)} head widths from each other's reflections`;
+    }
+
+    // Not a cut edge. The tops of the heads have to sit at different heights.
+    const tops = focals.map((s) => s.headY - s.widthPx / 2);
+    const rise = Math.max(...tops.map((t) => Math.abs(t - mean(tops))));
+    const varies = rise / mean(focals.map((s) => s.widthPx));
+    if (varies < flattest) {
+      flattest = varies;
+      flattestAt = name;
+    }
+
+    // Denser in the heart than at the rim.
+    const reach = Math.max(...focals.map((s) => Math.abs(s.headX - l.tieX)));
+    const crowd = (of: PlacedStem[]) =>
+      of.length === 0
+        ? 0
+        : mean(
+            of.map(
+              (s) =>
+                focals.filter(
+                  (o) =>
+                    o !== s &&
+                    Math.hypot(o.headX - s.headX, o.headY - s.headY) < (s.widthPx + o.widthPx) / 2,
+                ).length,
+            ),
+          );
+    const inner = focals.filter((s) => Math.abs(s.headX - l.tieX) < reach * 0.5);
+    const outer = focals.filter((s) => Math.abs(s.headX - l.tieX) >= reach * 0.5);
+    if (inner.length > 1 && outer.length > 1 && crowd(inner) <= crowd(outer)) {
+      denserOut = `${name}: heart ${crowd(inner).toFixed(1)} neighbours, rim ${crowd(outer).toFixed(1)}`;
+    }
+
+    // Big blooms in the body; small ones free to reach out.
+    const bySize = [...focals].sort((a, b) => b.widthPx - a.widthPx);
+    const third = Math.max(1, Math.floor(focals.length / 3));
+    // Measured on the bloom's NEAR EDGE, not its centre. Four big heads packed
+    // round the middle of a bouquet have their centres a radius out simply
+    // because they are big — measured on centres, a sunflower sitting squarely
+    // over the heart of the arrangement counts as further out than a carnation
+    // beside it, which is the opposite of what is being asked.
+    const edge = (s: PlacedStem) => Math.abs(s.headX - l.tieX) - s.widthPx / 2;
+    const bigOut = mean(bySize.slice(0, third).map(edge));
+    const smallOut = mean(bySize.slice(-third).map(edge));
+    // And only where the sizes actually differ: a bouquet of one kind of rose
+    // has no big blooms to keep out of the rim.
+    const range = bySize[0].widthPx / bySize[bySize.length - 1].widthPx;
+    // With a head's-width or so of slack: six lilies cannot all sit over the
+    // middle of a bouquet at once, and asking their near edges to be no further
+    // out than a carnation's is asking them not to be six lilies.
+    const slack = mean(focals.map((s) => s.widthPx)) * 0.35;
+    if (range > 1.3 && bigOut > smallOut + slack) {
+      bigAtEdge = `${name}: the biggest blooms' near edges average ${bigOut.toFixed(
+        0,
+      )}px from the middle, the smallest ${smallOut.toFixed(0)}px`;
+    }
+
+    // Nothing off on its own.
+    for (const s of focals) {
+      const touching = focals.filter(
+        (o) =>
+          o !== s &&
+          Math.hypot(o.headX - s.headX, o.headY - s.headY) < ((s.widthPx + o.widthPx) / 2) * 1.3,
+      ).length;
+      if (touching === 0) lonely = `${name}: ${s.item.id} in row ${s.level} touches nothing`;
+    }
+  }
+
+  check(
+    "flowers cluster rather than spacing themselves evenly",
+    evenest > 0.25,
+    `most even crowding varies by ${evenest.toFixed(2)}, in ${evenestAt}`,
+  );
+  check("the two sides are not mirror images", mirroredAt === "", mirroredAt);
+  check(
+    "the top edge is not flat",
+    flattest > 0.25,
+    `flattest top varies by ${flattest.toFixed(2)} of a head width, in ${flattestAt}`,
+  );
+  check("the heart of the bouquet is denser than its rim", denserOut === "", denserOut);
+  check("big blooms stay in the body, not out at the rim", bigAtEdge === "", bigAtEdge);
+  check("no flower is left standing on its own", lonely === "", lonely);
+}
+
+{
+  // A bouquet is built around something, and it is drawn a touch larger than
+  // the flowers gathered round it.
+  let broken = "";
+  for (const { name, state } of EVERY) {
+    const focals = lay(state).placed.filter((s) => s.item.category === "focal");
+    if (focals.length < 4) continue;
+    const anchors = focals.filter((s) => s.isAnchor);
+    if (anchors.length === 0 || anchors.length > 3) broken = `${name}: ${anchors.length} anchors`;
+    else {
+      // Compared on the CATALOGUE width, which is what an anchor is chosen by.
+      // Rendered widths carry the per-stem size variation on top, so two roses
+      // of the same kind come out a few percent apart either way.
+      const real = (s: PlacedStem) => s.variant.widthMm ?? s.item.realWidthMm;
+      if (anchors.some((a) => focals.some((o) => !o.isAnchor && real(o) > real(a)))) {
+        broken = `${name}: a flower it is not built around is bigger than one it is`;
+      }
+    }
+  }
+  check("every bouquet is built around one to three flowers", broken === "", broken);
 }
 
 /* -- the wrap -------------------------------------------------------------- */

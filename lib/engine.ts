@@ -11,6 +11,7 @@
  */
 
 import { getItemOrFallback } from "./catalog";
+import { composeStems, type ComposeStem, type Frame, type Spot } from "./compose";
 import { rand, randSigned } from "./rng";
 import type { BouquetState, CatalogItem, Stem, StemCategory, StemLayer } from "./types";
 
@@ -25,15 +26,27 @@ import type { BouquetState, CatalogItem, Stem, StemCategory, StemLayer } from ".
  */
 export const CANVAS_WIDTH_MM = 400;
 
+/**
+ * ...but a bouquet bigger than that pulls the window back rather than being
+ * crushed into it.
+ *
+ * Eleven sunflowers make a bouquet about 600mm across. Held to a 400mm window
+ * it does not become a smaller bouquet — it becomes eleven full-sized
+ * sunflowers piled on top of each other, because the positions can be squeezed
+ * and the heads cannot. Every millimetre still converts through ONE number, so
+ * a 180mm sunflower is still 2.4x a 75mm rose whatever the window is; the
+ * window is just far enough back to see the whole thing.
+ */
+function worldWidthMm(requiredHalfMm: number): number {
+  return Math.max(CANVAS_WIDTH_MM, requiredHalfMm * 2);
+}
+
 /** Phyllotaxis. The angle sunflower seeds actually use. */
 export const GOLDEN_ANGLE_DEG = 137.5;
 
 /** Seeded jitter, per the brief. */
 export const ANGLE_JITTER_DEG = 8;
 export const RADIUS_JITTER = 0.06;
-
-/** Scale drops 12% per level toward the back. */
-export const RING_SCALE_FALLOFF = 0.12;
 
 /**
  * Ring spacing is derived from the root-mean-square head width rather than the
@@ -54,6 +67,7 @@ const RING_SPACING_MAX_MM = 90;
  * the canvas would shrink the whole bouquet to fit its airiest stem.
  */
 const FIT_HALF_WIDTH = 0.5;
+const REACH_SAFETY = 0.97;
 const FIT_TOP_MARGIN = 0.03;
 const MIN_RISE_FIT = 0.45;
 
@@ -136,42 +150,55 @@ export function levelCount(count: number): number {
 }
 
 /**
- * Scale multiplier for a level: 12% smaller for each level toward the back.
+ * How much bigger or smaller a stem is drawn for the row it stands in.
  *
- * Multiplied out rather than raised with `Math.pow`, whose result for
- * non-integer cases is implementation-defined — Node and the browser can
+ * Perspective across the depth of a bouquet is a SUBTLE thing — a back-row
+ * flower is a hand's breadth further away, not across the room. A steep falloff
+ * shrinks the back of the arrangement into a different bouquet behind the front
+ * of it, which is the opposite of depth: what you notice is the size, not the
+ * distance.
+ *
+ * So the range is narrow and it straddles 1: the front row is drawn a little
+ * over life size and the back a little under, with the anchors — the flowers
+ * the bouquet is built around — a touch larger again, because a dominant bloom
+ * is dominant partly by being bigger than its neighbours.
+ *
+ * Multiplied and added rather than raised with `Math.pow`, whose result for
+ * non-integer cases is implementation-defined: Node and the browser can
  * disagree in the last bit, which is enough to make the server and client
- * render different numbers and trip a hydration mismatch. IEEE multiplication
- * is exactly specified, so a loop gives the same answer everywhere.
+ * render different numbers and trip a hydration mismatch.
  */
-export function scaleForLevel(level: number): number {
-  let scale = 1;
-  for (let i = 0; i < level; i += 1) scale *= 1 - RING_SCALE_FALLOFF;
-  return scale;
+export const DEPTH_SCALE_FRONT = 1.06;
+export const DEPTH_SCALE_BACK = 0.92;
+/** A row of identical flowers all drawn identically is a row of identical flowers. */
+export const DEPTH_SCALE_VARY = 0.035;
+/** How much larger the flowers the bouquet is built around are drawn. */
+export const ANCHOR_SCALE = 1.05;
+
+export function scaleForLevel(level: number, levels: number): number {
+  // A bouquet one row deep sits a little forward of the middle of the range
+  // rather than at the very front of it, so it is not drawn oversized.
+  const t = levels > 1 ? Math.min(1, Math.max(0, level / (levels - 1))) : 0.35;
+  return DEPTH_SCALE_FRONT + (DEPTH_SCALE_BACK - DEPTH_SCALE_FRONT) * t;
 }
 
-/** How much narrower the back row is than the front one. */
-const LEVEL_NARROW = 0.16;
+
 
 /**
- * How far past its own minimum a capped category may still spread when there
- * are barely any flowers to measure against, in `spreadMin` units. Without it a
- * bouquet of two roses and eight ferns caps the ferns to the width of the two
- * roses and stacks them all in one place.
- */
-const SPREAD_CEILING_FLOOR = 1.6;
-
-/**
- * How far each row back stands above the one in front, in ring spacings.
+ * How far each row back stands above the one in front, as a share of how wide
+ * the heads in the bouquet actually are.
  *
- * This is the single number that decides whether a bouquet reads as a bouquet.
- * A head is `2 / RING_SPACING_FACTOR` ring spacings across, so 1.15 shows a
- * little over half of every flower above the row in front of it — which is
- * what every reference photograph does. Too little and the rows collapse into
- * one plane, where a small flower ends up entirely behind a big one and is
- * simply wasted; too much and the bouquet becomes a staircase.
+ * This is the single number that decides whether a bouquet reads as a bouquet,
+ * and it has to be measured against the FLOWERS. Measured in ring spacings — an
+ * RMS that a few small heads drag down — a bouquet of roses and carnations
+ * stepped its rows further apart than a rose is wide, so no row overlapped the
+ * one behind it and the middle of every arrangement came out hollow.
+ *
+ * At 0.55 a little under half of every flower shows above the row in front of
+ * it. Too little and the rows collapse into one plane; too much and the bouquet
+ * becomes a staircase with daylight through it.
  */
-const ROW_STEP_RINGS = 1.15;
+const ROW_STEP_OF_HEAD = 0.6;
 
 /**
  * How much shallower the step is at the sides than in the middle. Rows fan out
@@ -193,17 +220,15 @@ const ROW_STEP_TAPER = 0.25;
  */
 const DOME_DROP_RINGS = 0.9;
 
+
 /**
- * The tallest the back row may stand above the tie, as a fraction of the room
- * there is above it.
- *
- * The row step is a fixed distance, so a tall stack of big flowers would walk
- * straight out of the frame. Capping the total here rather than leaving it to
- * the vertical fit matters: the fit shortens the STEMS, and shortening the
- * stems of a bouquet whose rows are too tall gives you short stems and a bouquet
- * that is still too tall.
+ * How far the bottom of the bouquet sweeps up toward its sides, as a share of
+ * the face's half-width — and so, like the collar it has to clear, growing with
+ * the bouquet rather than fixed. Held to a constant instead, a wide bouquet
+ * grew a collar whose side points rose faster than its own outline and swallowed
+ * the foliage at its edges.
  */
-const DOME_LIFT_CAP = 0.4;
+const EDGE_RISE_OF_HALF = 0.28;
 
 /**
  * How filler sits in a gap, in shares of a row step: a touch proud of the seam
@@ -232,11 +257,6 @@ const GAP_FIT_MIN = 0.4;
 /** And never wider than this much of the bloom it is tucked beside. */
 const GAP_FIT_OF_BLOOM = 0.8;
 
-/**
- * How far a stem may stand proud of its own row, as a share of the row step.
- * Under a half, so no stem is ever nearer the next row's line than its own.
- */
-const ROW_WOBBLE = 0.22;
 
 /**
  * Row sizes. The front row carries a few more stems than the back one, because
@@ -289,38 +309,10 @@ interface CategoryLevels {
   /** Floor for that, in ring spacings, for bouquets with few or no flowers. */
   spreadMin: number;
   /**
-   * Ceiling for it, as a multiple of the flower mass. Absent means none.
-   *
-   * A row widens to hold whatever stands in it, which is right for the flowers
-   * — they must not crowd — and wrong for everything else. Twelve stems of
-   * eucalyptus given all the room they ask for fan out into a peacock's tail
-   * five times the width of the flowers they are supposed to be standing behind.
-   * Past the ceiling, foliage overlaps itself instead of spreading, which is
-   * what a thicket of foliage does.
-   */
-  spreadMax?: number;
-  /**
-   * How much neighbouring stems in a row may overlap, as a fraction of their
-   * own width — which is a different number for each role, not a global taste
-   * setting. Two flowers overlapping by half means one of them was a waste of
-   * money. Two fronds overlapping by half is what foliage looks like.
-   */
-  overlap: number;
-  /**
    * How much of the middle of a row this category leaves empty, as a fraction
    * of its half-width. Flowers fill the middle; foliage stays out of it.
    */
   centreClear: number;
-  /**
-   * Fraction of a row's pitch the whole row is shifted by, flipping direction
-   * level by level so the bouquet stays balanced.
-   *
-   * At a quarter, neighbouring rows come out half a pitch apart — a brick bond,
-   * so every flower in a back row stands in the gap between two in front of it
-   * and shows itself. Laid out on the same positions row after row, the rows
-   * become columns and the back ones might as well not be there.
-   */
-  stagger: number;
   /** How high it carries its heads, relative to its cut length. */
   rise: number;
   /** Pull toward the back rows. 0 fills the front row first, 1 the back. */
@@ -332,45 +324,37 @@ interface CategoryLevels {
 }
 
 const CATEGORY_LEVELS: Record<StemCategory, CategoryLevels> = {
-  // The face of the bouquet. Fills its rows from the middle outward, brick-bonded
-  // row to row so nothing is hidden behind the flower in front of it.
+  // The face of the bouquet: the composition fills its rows from the middle out.
   focal: {
     spread: 1,
     spreadMin: 0.6,
-    overlap: 0.22,
     centreClear: 0,
-    stagger: 0.25,
     rise: 1,
     backBias: 0,
     maxLean: 42,
     floor: 1,
   },
-  // In the gaps, not behind the blooms. Half a pitch off the flowers' rows and
-  // a touch wider, carried slightly higher and drawn behind the focals — so
-  // what shows of a stem of gypsophila is exactly the part in a gap.
+  // In the gaps the flowers leave, not behind the blooms. Carried slightly
+  // higher and drawn behind the focals, so what shows of a stem of gypsophila
+  // is exactly the part in a gap. Its band here is only the fallback for a
+  // bouquet with no flowers to have gaps.
   filler: {
     spread: 1.12,
     spreadMin: 1.1,
-    spreadMax: 1.5,
-    overlap: 0.45,
     centreClear: 0.18,
-    stagger: 0.5,
     rise: 1.02,
     backBias: 0.45,
     maxLean: 54,
     floor: 0.8,
   },
   // The background. Wider than the flowers, weighted to the back rows and held
-  // out of the middle, where a frond painted across the face of a bouquet is
-  // not foliage behind it — it is a fern lying on top of one. Free to overlap
-  // itself, because a thicket of foliage is a thicket.
+  // out of the middle of the FRONT of them, where a frond painted across the
+  // face of a bouquet is not foliage behind it — it is a fern lying on top of
+  // one. The clearance fades toward the back, where foliage belongs everywhere.
   green: {
     spread: 1.3,
     spreadMin: 1.5,
-    spreadMax: 1.9,
-    overlap: 0.55,
     centreClear: 0.45,
-    stagger: 0.32,
     rise: 1.05,
     backBias: 0.62,
     maxLean: 48,
@@ -388,6 +372,8 @@ export interface Layout {
   /** Tie point in canvas pixels. */
   tieX: number;
   tieY: number;
+  /** How much real world the canvas is a window onto, across its width. */
+  worldWidthMm: number;
   /** Pixels per real millimetre, at scale 1. */
   mmToPx: number;
   /** Spacing between neighbouring heads' positions, in pixels. */
@@ -402,6 +388,11 @@ export interface Layout {
  */
 export function spriteWidthPx(realWidthMm: number, canvasWidth: number, scale: number): number {
   return (realWidthMm / CANVAS_WIDTH_MM) * canvasWidth * scale;
+}
+
+/** The same rule, through whatever window this layout settled on. */
+export function sizePx(realWidthMm: number, layout: Layout, scale: number): number {
+  return realWidthMm * layout.mmToPx * scale;
 }
 
 /**
@@ -483,6 +474,20 @@ export function placementOrder(stems: Stem[]): number[] {
 /* The plan                                                                     */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * How many flowers a bouquet is built around.
+ *
+ * A composition needs something to be about. One dominant bloom for a posy,
+ * two or three for a full bouquet — more than that and nothing is dominant,
+ * which is the same as having none.
+ */
+export function anchorCount(focals: number): number {
+  if (focals <= 1) return focals;
+  if (focals <= 3) return 1;
+  if (focals <= 8) return 2;
+  return 3;
+}
+
 export interface StemPlan extends PlacementSlot {
   /** Golden-angle position, after jitter, in degrees. */
   angleDeg: number;
@@ -506,6 +511,10 @@ export interface StemPlan extends PlacementSlot {
    * there are no flowers to have gaps.
    */
   gap?: GapAnchor;
+  /** One of the flowers the whole composition is built around. */
+  isAnchor: boolean;
+  /** Which small group of the bouquet this stem belongs to. */
+  cluster: number;
 }
 
 /**
@@ -583,7 +592,12 @@ export function planStems(state: Pick<BouquetState, "seed" | "stems">): StemPlan
   // stem's height, size and paint order are rungs on it.
   const counts = { focal: 0, filler: 0, green: 0 };
   for (const entry of spiral) counts[entry.slot.category] += 1;
-  const levels = levelCount(Math.max(counts.focal, counts.filler, counts.green));
+  // Counted off the FLOWERS, so that adding foliage cannot change how deep the
+  // bouquet is and move every flower in it. A bouquet with no flowers at all
+  // falls back to measuring whatever it has.
+  const levels = levelCount(
+    counts.focal > 0 ? counts.focal : Math.max(counts.filler, counts.green),
+  );
 
   const plan: StemPlan[] = [];
 
@@ -600,6 +614,8 @@ export function planStems(state: Pick<BouquetState, "seed" | "stems">): StemPlan
           const gap = { ...gaps[i % gaps.length], repeat: Math.floor(i / gaps.length) };
           plan.push({
             ...entry.slot,
+            isAnchor: false,
+            cluster: gap.level,
             angleDeg: entry.angleDeg,
             // Filler takes the row of the flower whose gap it sits in, so it is
             // painted, sized and shaded as something at that depth.
@@ -631,6 +647,30 @@ export function planStems(state: Pick<BouquetState, "seed" | "stems">): StemPlan
       }))
       .sort((a, b) => b.front - a.front || a.entry.slot.bandIndex - b.entry.slot.bandIndex);
 
+    // The flowers the composition is built around: the biggest blooms, picked
+    // here so that everything else can be judged against where they landed.
+    const anchors = new Set<number>();
+    if (category === "focal") {
+      const biggest = members
+        .map((entry, i) => ({ stemIndex: entry.slot.stemIndex, width: widths[i], i }))
+        .sort((a, b) => b.width - a.width || a.i - b.i);
+      for (const pick of biggest.slice(0, anchorCount(members.length))) {
+        anchors.add(pick.stemIndex);
+      }
+    }
+
+    // The groups the bouquet is built in: one per anchor, with every other
+    // flower belonging to one of them. Real bouquets go down in small
+    // gatherings with room left between them, not one flower at a time at an
+    // even pitch — and the gatherings form round the flowers the arrangement
+    // is about.
+    const groups = Math.max(1, anchors.size);
+    const anchorGroup = new Map<number, number>();
+    [...anchors].sort((a, b) => a - b).forEach((stemIndex, i) => anchorGroup.set(stemIndex, i));
+    const clusterOf = (stemIndex: number) =>
+      anchorGroup.get(stemIndex) ??
+      Math.min(groups - 1, Math.floor(rand(state.seed, stemIndex, "cluster") * groups));
+
     // Fill the rows front to back, then let the depth control move a stem
     // between them. Moving a stem forward is a real move, not a repaint: it
     // changes the row it stands in, so it comes down toward the rim and over
@@ -659,6 +699,8 @@ export function planStems(state: Pick<BouquetState, "seed" | "stems">): StemPlan
       row.forEach((member, slot) => {
         plan.push({
           ...member.entry.slot,
+          isAnchor: anchors.has(member.entry.slot.stemIndex),
+          cluster: clusterOf(member.entry.slot.stemIndex),
           angleDeg: member.entry.angleDeg,
           level,
           levels,
@@ -683,12 +725,19 @@ export function planStems(state: Pick<BouquetState, "seed" | "stems">): StemPlan
  * fills them in.
  */
 function gapsIn(focals: StemPlan[]): GapAnchor[] {
-  const rows: number[] = [];
+  // Dense, with the empty rows counted as empty rather than left as holes: a
+  // bouquet whose anchor came forward can leave a row of flowers with nothing
+  // in it, and a hole in this array is not the same thing as a zero.
+  const deepest = focals.reduce(
+    (most, entry) => (entry.category === "focal" ? Math.max(most, entry.level) : most),
+    -1,
+  );
+  if (deepest < 0) return [];
+  const rows: number[] = Array.from({ length: deepest + 1 }, () => 0);
   for (const entry of focals) {
     if (entry.category !== "focal") continue;
-    rows[entry.level] = Math.max(rows[entry.level] ?? 0, entry.slotCount);
+    rows[entry.level] = Math.max(rows[entry.level], entry.slotCount);
   }
-  if (rows.length === 0) return [];
 
   // Each kind of gap, listed per row: middle of the row first, working outward.
   const between = rows.map((_, level) =>
@@ -791,26 +840,6 @@ function levelCapacities(count: number, levels: number, backBias: number): numbe
 }
 
 /**
- * Opens an empty band through the middle of a row.
- *
- * `even` runs -1 to 1 across the row; the result runs across the same range with
- * a band of width `clear` taken out of the middle, so a category that has no
- * business in the face of the bouquet is laid out around it rather than through
- * it. A row of one stands at the near edge of that band rather than in the
- * middle of it, on alternating sides row by row — which is how a single frond
- * ends up beside the flowers instead of standing up through them.
- */
-function openCentre(even: number, clear: number, level: number): number {
-  const side = even === 0 ? rowStaggerSign(level) : even < 0 ? -1 : 1;
-  return side * (clear + Math.abs(even) * (1 - clear));
-}
-
-/** Which way a row's brick bond is offset. Alternating, so the bouquet stays balanced. */
-function rowStaggerSign(level: number): number {
-  return level % 2 === 0 ? 1 : -1;
-}
-
-/**
  * Ring spacing adapts to what is actually in the bouquet: a fistful of
  * sunflowers needs more room between positions than a posy of lavender.
  * Still a pure function of state, so determinism holds.
@@ -835,15 +864,48 @@ function ringSpacingMm(stems: Stem[]): number {
 }
 
 export function computeLayout(width: number, height: number, state: BouquetState): Layout {
-  const mmToPx = width / CANVAS_WIDTH_MM;
+  const world = worldWidthMm(requiredHalfMm(state));
+  const mmToPx = width / world;
   return {
     width,
     height,
     tieX: state.tiePoint[0] * width,
     tieY: state.tiePoint[1] * height,
+    worldWidthMm: world,
     mmToPx,
     ringSpacingPx: ringSpacingMm(state.stems) * mmToPx,
   };
+}
+
+/**
+ * How much real world the bouquet needs across half its width, in millimetres.
+ *
+ * Worked out in millimetres precisely so it does not depend on the window it is
+ * about to set. The face is sized from the area of the heads that go on it; each
+ * role reaches its own multiple of that; and each is allowed to hang part of its
+ * widest head over the edge, because a sprig of eucalyptus running out of frame
+ * is what these photographs look like and a focal flower cut in half is not.
+ */
+function requiredHalfMm(state: Pick<BouquetState, "seed" | "stems">): number {
+  const plan = planStems(state);
+  if (plan.length === 0) return 0;
+
+  const headMm = (entry: StemPlan) =>
+    headWidthMm(state.stems[entry.stemIndex]) *
+    scaleForLevel(entry.level, entry.levels) *
+    (entry.isAnchor ? ANCHOR_SCALE : 1);
+
+  // Measured over the FLOWERS alone, and the greenery is left to overhang.
+  //
+  // The window sets the scale of everything, so anything that changes it moves
+  // every stem in the bouquet — and a stem of eucalyptus must not move the
+  // flowers. Foliage running off the edge of the frame is what these
+  // photographs look like anyway; a flower cut in half by it is not.
+  const focals = plan.filter((entry) => entry.category === "focal");
+  const measured = focals.length > 0 ? focals : plan;
+  const faceHalf = faceHalfPx(measured.map((entry) => ({ radius: headMm(entry) / 2 })));
+  const widest = measured.reduce((most, entry) => Math.max(most, headMm(entry)), 0);
+  return faceHalf + widest * FIT_SPRITE_MARGIN[measured[0].category];
 }
 
 /* -------------------------------------------------------------------------- */
@@ -889,6 +951,16 @@ export interface PlacedStem {
   widthPx: number;
   /** On-screen width of a single bloom within the sprite. */
   bloomPx: number;
+  /** One of the flowers the whole composition is built around. */
+  isAnchor: boolean;
+  /** Which small group of the bouquet this stem belongs to. */
+  cluster: number;
+  /**
+   * What the composition thought of where this stem ended up, and of every
+   * other position it considered. Carried for the debug overlay, which is the
+   * only way to tune a scoring function honestly.
+   */
+  composition?: Spot;
   layer: StemLayer;
   /**
    * Where this stem sits in the stack, back to front — the ONE number paint
@@ -909,23 +981,44 @@ export interface PlacedStem {
  * point and the rotation alone is what fans the head outward — θ and the axis
  * length are solved from the head position the rows ask for.
  */
+export interface Composition {
+  frame: Frame;
+  spots: Map<number, Spot>;
+  scaleOf: Map<StemPlan, number>;
+}
+
+/**
+ * What the composition was working within — the frame it judged every position
+ * against. Only the debug overlay wants this; it is recomputed rather than
+ * carried, because it is cheap and nothing else should be reading it.
+ */
+export function describeComposition(state: BouquetState, layout: Layout): Frame {
+  return buildFrame(state, layout, planStems(state)).frame;
+}
+
+/** Compose the bouquet: every stem judged into place, before the frame is considered. */
+export function composeBouquet(state: BouquetState, layout: Layout, plan: StemPlan[]): Composition {
+  const { frame, stems, scaleOf } = buildFrame(state, layout, plan);
+  return { frame, spots: composeStems(state.seed, stems, frame), scaleOf };
+}
+
 export function placeStems(state: BouquetState, layout: Layout): PlacedStem[] {
   const plan = planStems(state);
+  // Composed once, in its own space, and only then reined in. The composition
+  // decides the picture; the fits breathe the finished picture in until it fits
+  // the frame, which is a different job and must not be allowed to change which
+  // flower went where.
+  const composed = composeBouquet(state, layout, plan);
 
-  // The rows are laid out at their natural width first, then reined in so the
-  // whole arrangement stays inside the frame. Both corrections are single
-  // scalars solved in closed form from the first pass, so the structure is
-  // untouched — it just breathes in. Adding a thirtieth stem tightens the
-  // bouquet instead of pushing flowers off the edge of the canvas.
-  const natural = layoutPass(state, layout, plan, 1, 1);
+  const natural = layoutPass(state, layout, plan, composed, 1, 1);
   const spreadFit = Math.min(
     solveHorizontalFit(natural, layout),
     solveLeanFit(natural, layout),
   );
-  const widened = spreadFit === 1 ? natural : layoutPass(state, layout, plan, spreadFit, 1);
+  const widened = spreadFit === 1 ? natural : layoutPass(state, layout, plan, composed, spreadFit, 1);
   const riseFit = solveVerticalFit(widened, layout);
   if (riseFit === 1) return widened;
-  return layoutPass(state, layout, plan, spreadFit, riseFit);
+  return layoutPass(state, layout, plan, composed, spreadFit, riseFit);
 }
 
 /**
@@ -984,273 +1077,246 @@ function solveVerticalFit(placed: PlacedStem[], layout: Layout): number {
   const limit = layout.height * FIT_TOP_MARGIN;
   let fit = 1;
   for (const stem of placed) {
-    if (stem.risePx < 1e-6) continue;
     const above = layout.tieY - stem.headY;
     if (above < 1e-6) continue;
     const allowed = layout.tieY - limit - stem.widthPx * FIT_SPRITE_MARGIN[stem.item.category];
-    // headY = tieY - risePx + dy, so dy = risePx - above.
-    const dy = stem.risePx - above;
-    fit = Math.min(fit, Math.max(0, allowed + dy) / stem.risePx);
+    fit = Math.min(fit, Math.max(0, allowed) / above);
   }
-  // Never shorten the stems to nothing. If a bouquet is still too tall at this
-  // point it is the ROWS that are too tall, and the row step is capped for
-  // exactly that; cutting the stems any further past here just buries the heads
-  // in the wrap.
+  // Never squash the bouquet to nothing. If it is still too tall at this point
+  // it is the ROWS that are too tall, and the row step is capped for exactly
+  // that; squashing further past here just buries the heads in the wrap.
   return Math.min(1, Math.max(MIN_RISE_FIT, fit));
 }
 
+/** How far a role may reach across the canvas, as a multiple of the face's half-width. */
+function reachOf(
+  state: BouquetState,
+  category: StemCategory,
+  massHalf: number,
+  plan: StemPlan[],
+  radiusOf: Map<StemPlan, number>,
+  layout: Layout,
+): number {
+  const wanted = CATEGORY_LEVELS[category].spread;
+  // The widest POSE, not the stored one: which way a frond arches is not
+  // settled until it knows which side of the bouquet it landed on, and an
+  // arching stem spans nearly twice an upright. Capped on the stored width, one
+  // mirrored eucalyptus was enough to trip the fit pass and shift the flowers.
+  const widest = plan.reduce((most, entry) => {
+    if (entry.category !== category) return most;
+    const item = getItemOrFallback(state.stems[entry.stemIndex].itemId);
+    const pose = item.variants.reduce(
+      (w, variant) => Math.max(w, variant.widthMm ?? item.realWidthMm),
+      item.realWidthMm,
+    );
+    const stored = headWidthMm(state.stems[entry.stemIndex]);
+    const grown = stored > 0 ? pose / stored : 1;
+    return Math.max(most, (radiusOf.get(entry) ?? 0) * grown);
+  }, 0);
+  if (widest === 0 || massHalf <= 0) return wanted;
+  // A shade under what the frame will take, so the reach never lands exactly on
+  // the fit pass's limit and leave a rounding error to decide whether the whole
+  // bouquet gets narrowed.
+  const room =
+    (layout.width * FIT_HALF_WIDTH - widest * 2 * FIT_SPRITE_MARGIN[category]) * REACH_SAFETY;
+  return Math.min(wanted, Math.max(0.2, room / massHalf));
+}
+
 /**
- * One row of the bouquet, measured.
+ * How wide the face of the bouquet should be.
  *
- * A row is spaced by the widths of the stems ACTUALLY IN IT, pair by pair, not
- * by an average for the whole category. The average was the last place a big
- * bloom and a small one could still collide: a row spaced for the mean of a
- * mixed bouquet leaves an open lily and a rose bud the same gap, which is far
- * too much for one and nowhere near enough for the other.
+ * From the area of the heads that have to fit on it, not from a pitch. A face
+ * is roughly an ellipse, and the heads laid on it overlap — so their summed
+ * area exceeds the area of the face by a known amount, and inverting that gives
+ * the half-width directly. Sizing from a pitch instead is what made the rows
+ * even: a pitch IS an even spacing, and every arrangement built on one is a
+ * grid however much jitter is sprinkled over it.
  */
-interface Row {
-  seats: Seat[];
-  /** Position of each seat along the row, -1 to 1, at the row's natural width. */
-  even: number[];
-  /** Half the width the row needs to hold its stems at their allowed overlap. */
-  naturalHalf: number;
-}
-
-interface Seat {
-  plan: StemPlan;
-  stem: Stem;
-  item: CatalogItem;
-  scale: number;
-  /** The width this stem takes up in its row, on screen. */
-  spacingPx: number;
-}
-
-function rowKey(category: StemCategory, level: number): string {
-  return `${category}:${level}`;
+function faceHalfPx(heads: Array<{ radius: number }>): number {
+  if (heads.length === 0) return 0;
+  const area = heads.reduce((sum, head) => sum + Math.PI * head.radius * head.radius, 0);
+  const widest = heads.reduce((most, head) => Math.max(most, head.radius), 0);
+  return Math.max(widest, Math.sqrt(area / (FACE_FILL * Math.PI * FACE_ASPECT)));
 }
 
 /**
- * Lay every row out at its natural width.
+ * How much more head area a bouquet carries than the face it is laid on, and
+ * how tall that face is against its width.
  *
- * Neighbours are set `((wa + wb) / 2) * (1 - overlap)` apart, so every pair in
- * the row overlaps by exactly what its category allows whatever sizes the two
- * of them are. That is the guarantee the whole "no piling up" rule rests on,
- * and it cannot be made by any single pitch.
+ * The first is the overlap, stated as a number: at 1.45 the heads cover the
+ * face half again over, which is a bouquet you cannot see through. The second
+ * is the shape every hand-tie has from the front — wider than it is tall.
  */
-function buildRows(state: BouquetState, layout: Layout, plan: StemPlan[]): Map<string, Row> {
-  const rows = new Map<string, Row>();
+const FACE_FILL = 1.2;
+const FACE_ASPECT = 0.72;
+
+/**
+ * Everything the composition needs to know about the bouquet it is composing.
+ *
+ * Worked out once, before a single position is chosen, and free of the fit
+ * scalars — the composition decides the picture, and the fits only breathe the
+ * finished picture in to fit the frame.
+ */
+function buildFrame(
+  state: BouquetState,
+  layout: Layout,
+  plan: StemPlan[],
+): { frame: Frame; stems: ComposeStem[]; scaleOf: Map<StemPlan, number> } {
+  const scaleOf = new Map<StemPlan, number>();
+  const radiusOf = new Map<StemPlan, number>();
+  const riseOf = new Map<StemPlan, number>();
 
   for (const entry of plan) {
-    // Filler tucked into a gap is positioned from the flowers, not from a row.
-    if (entry.gap) continue;
     const stem = state.stems[entry.stemIndex];
     const item = getItemOrFallback(stem.itemId);
-    const scale = scaleForLevel(entry.level);
-    const seat: Seat = {
-      plan: entry,
-      stem,
-      item,
-      scale,
-      spacingPx: spriteWidthPx(headWidthMm(stem), layout.width, scale),
-    };
-    const key = rowKey(entry.category, entry.level);
-    const row = rows.get(key);
-    if (row) row.seats.push(seat);
-    else rows.set(key, { seats: [seat], even: [], naturalHalf: 0 });
+    const scale =
+      scaleForLevel(entry.level, entry.levels) *
+      (entry.isAnchor ? ANCHOR_SCALE : 1) *
+      (1 + randSigned(state.seed, entry.n, "scale") * DEPTH_SCALE_VARY);
+    scaleOf.set(entry, scale);
+    radiusOf.set(entry, sizePx(headWidthMm(stem), layout, scale) / 2);
+    riseOf.set(
+      entry,
+      item.stemLengthMm * CATEGORY_LEVELS[entry.category].rise * layout.mmToPx,
+    );
   }
 
-  for (const [, row] of rows) {
-    row.seats.sort((a, b) => a.plan.slot - b.plan.slot);
-    const overlap = CATEGORY_LEVELS[row.seats[0].plan.category].overlap;
+  const focals = plan.filter((entry) => entry.category === "focal");
 
-    const along = [0];
-    for (let i = 1; i < row.seats.length; i += 1) {
-      const gap = ((row.seats[i - 1].spacingPx + row.seats[i].spacingPx) / 2) * (1 - overlap);
-      along.push(along[i - 1] + gap);
-    }
-    // Centre the row on what it LOOKS like, not on where its stems' middles
-    // happen to fall. A row that ends in an open lily on one side and a bud on
-    // the other has far more of itself on the lily's side, and centring the
-    // middles leaves the whole bouquet visibly hanging off to one edge.
-    const span = along[along.length - 1];
-    const first = row.seats[0].spacingPx;
-    const last = row.seats[row.seats.length - 1].spacingPx;
-    const centre = (span + (last - first) / 2) / 2;
-    // The longer arm, not half the span: the row is normalised against it, so
-    // it is also the width the row must be given for its gaps to come out at
-    // the spacing they were just worked out to.
-    const arm = Math.max(centre, span - centre) || 1;
-    row.even = along.map((at) => (at - centre) / arm);
-    // The centre band is empty, so the stems have `1 - centreClear` of the row
-    // to stand in: widen to compensate rather than let them crowd.
-    row.naturalHalf = arm / (1 - CATEGORY_LEVELS[row.seats[0].plan.category].centreClear);
+  // How wide the face is, from the area of the heads that go on it. No cap
+  // needed: the window was pulled back far enough for this in `computeLayout`,
+  // which is the whole reason it is worked out in millimetres there. Composing
+  // wider than the frame and letting a fit pass squeeze the result is not the
+  // same thing at all — the fit scales positions and NOT head sizes, so a
+  // bouquet composed 30% too wide comes back with every overlap 30% deeper than
+  // the composition chose.
+  const massHalf = Math.max(
+    layout.ringSpacingPx,
+    faceHalfPx(focals.map((entry) => ({ radius: radiusOf.get(entry) ?? 0 }))),
+  );
+
+  const levels = plan.reduce((most, entry) => Math.max(most, entry.levels), 1);
+  const backRow = plan.reduce((deepest, entry) => Math.max(deepest, entry.level), 0);
+  const rimDrop = DOME_DROP_RINGS * layout.ringSpacingPx;
+  const edgeRise = EDGE_RISE_OF_HALF * massHalf;
+
+  // How far apart the rows stand — and then how far apart the frame will let
+  // them, which is the smaller of the two.
+  //
+  // Stated here rather than left to the vertical fit for the same reason the
+  // width is: the fit scales POSITIONS, so a bouquet composed too tall comes
+  // back with every carefully chosen overlap closed up. Working out the room
+  // there is means the tallest head in the bouquet, plus however much of itself
+  // it must keep in frame, plus the sweep at the sides, all inside what is above
+  // the tie point.
+  let headroom = Infinity;
+  for (const entry of plan) {
+    const stem = state.stems[entry.stemIndex];
+    const item = getItemOrFallback(stem.itemId);
+    const rise = riseOf.get(entry) ?? 0;
+    const keep =
+      sizePx(headWidthMm(stem), layout, scaleOf.get(entry) ?? 1) *
+      FIT_SPRITE_MARGIN[entry.category];
+    headroom = Math.min(
+      headroom,
+      layout.tieY - layout.height * FIT_TOP_MARGIN - keep - rise - edgeRise,
+    );
+    void item;
   }
+  // How wide the heads in the bouquet actually are, which is what a row step
+  // has to be measured against.
+  const heads = focals.length > 0 ? focals : plan;
+  const meanHead =
+    heads.reduce((sum, entry) => sum + 2 * (radiusOf.get(entry) ?? 0), 0) / Math.max(1, heads.length);
+  const wantedStep = ROW_STEP_OF_HEAD * meanHead;
+  const rowStep =
+    backRow > 0
+      ? Math.max(meanHead * 0.25, Math.min(wantedStep, Math.max(0, headroom) / backRow))
+      : wantedStep;
 
-  return rows;
-}
-
-/**
- * One spacing per category, for the brick bond to be measured in.
- *
- * The bond has to be the SAME distance in every row of a category and only flip
- * direction, or it does not cancel: rows hold different stems, so a bond
- * measured off each row's own widths shifts a row of lilies further than a row
- * of buds and leaves the whole bouquet hanging to one side.
- */
-function categoryPitchPx(rows: Map<string, Row>): Record<StemCategory, number> {
-  const totals: Record<StemCategory, { sum: number; count: number }> = {
-    focal: { sum: 0, count: 0 },
-    filler: { sum: 0, count: 0 },
-    green: { sum: 0, count: 0 },
+  const frame: Frame = {
+    massHalf,
+    // How tall the face is, measured off the rows that actually make it, so the
+    // silhouette the composition is judged against is the one it can produce.
+    massTop: rowStep * Math.max(1, levels - 1) + rimDrop + edgeRise,
+    rowStep,
+    rimDrop,
+    edgeRise,
+    stepTaper: ROW_STEP_TAPER,
+    meanHead: meanHead / 2,
+    maxLean: {
+      focal: CATEGORY_LEVELS.focal.maxLean,
+      filler: CATEGORY_LEVELS.filler.maxLean,
+      green: CATEGORY_LEVELS.green.maxLean,
+    },
+    floor: {
+      focal: CATEGORY_LEVELS.focal.floor,
+      filler: CATEGORY_LEVELS.filler.floor,
+      green: CATEGORY_LEVELS.green.floor,
+    },
+    // How far each role may reach — its own figure, or as far as the frame will
+    // take it, whichever is less. Stated here rather than left to the fit pass
+    // because the fit shrinks the WHOLE arrangement: one frond reaching past the
+    // edge would otherwise pull every flower in the bouquet in with it.
+    spread: {
+      focal: reachOf(state, "focal", massHalf, plan, radiusOf, layout),
+      filler: reachOf(state, "filler", massHalf, plan, radiusOf, layout),
+      green: reachOf(state, "green", massHalf, plan, radiusOf, layout),
+    },
+    clear: {
+      focal: CATEGORY_LEVELS.focal.centreClear,
+      filler: CATEGORY_LEVELS.filler.centreClear,
+      green: CATEGORY_LEVELS.green.centreClear,
+    },
   };
-  for (const [, row] of rows) {
-    for (const seat of row.seats) {
-      totals[seat.plan.category].sum += seat.spacingPx;
-      totals[seat.plan.category].count += 1;
-    }
-  }
-  const pitch = {} as Record<StemCategory, number>;
-  for (const category of ["focal", "filler", "green"] as const) {
-    const { sum, count } = totals[category];
-    pitch[category] =
-      count > 0 ? (sum / count) * (1 - CATEGORY_LEVELS[category].overlap) : 0;
-  }
-  return pitch;
-}
 
-/** How wide the flower rows are: the widest row of flowers, at its natural width. */
-function massHalfPx(rows: Map<string, Row>): number {
-  let widest = 0;
-  for (const [, row] of rows) {
-    if (row.seats[0].plan.category !== "focal") continue;
-    widest = Math.max(widest, row.naturalHalf);
-  }
-  return widest;
-}
+  const stems: ComposeStem[] = plan
+    // Filler is not composed — it goes into the gaps the flowers leave, which is
+    // settled once they are down.
+    .filter((entry) => !entry.gap)
+    .map((entry) => ({
+      id: entry.n,
+      category: entry.category,
+      level: entry.level,
+      levels: entry.levels,
+      radius: radiusOf.get(entry) ?? 0,
+      rise: riseOf.get(entry) ?? 0,
+      isAnchor: entry.isAnchor,
+      cluster: entry.cluster,
+    }));
 
-/** Half-width a row is laid out at: wide enough for its category, never tighter than its own stems need. */
-function rowHalfPx(row: Row, massHalf: number, ringSpacingPx: number): number {
-  const { category, level, levels } = row.seats[0].plan;
-  const config = CATEGORY_LEVELS[category];
-  const t = levels > 1 ? level / (levels - 1) : 0.5;
-  const wanted =
-    Math.max(massHalf * config.spread, ringSpacingPx * config.spreadMin) *
-    (1 - LEVEL_NARROW * t);
-  const asked = Math.max(wanted, row.naturalHalf);
-  if (config.spreadMax === undefined) return asked;
-  const ceiling = Math.max(
-    massHalf * config.spreadMax,
-    ringSpacingPx * config.spreadMin * SPREAD_CEILING_FLOOR,
-    wanted,
-  );
-  return Math.min(asked, ceiling);
-}
-
-/**
- * How far the dome carries a stem's head above or below its own stem length.
- *
- * Two things added together. Every row back stands a fixed distance higher than
- * the one in front — a little less so out at the sides, where the rows crowd
- * together the way a dome does seen head-on. That is the whole of the depth
- * read, and it does not care which role the stem plays: a fern in the third row
- * stands as far back as a rose in the third row.
- *
- * On top of that the FRONT of the arrangement dips toward the mouth of the
- * wrap, most in the middle and not at all at the sides, so the front row
- * settles into the collar instead of hovering over it or diving behind it.
- */
-function domeOffsetY(
-  entry: StemPlan,
-  config: CategoryLevels,
-  u: number,
-  dropPx: number,
-  stepPx: number,
-): number {
-  const t = entry.levels > 1 ? entry.level / (entry.levels - 1) : 0.5;
-  return (
-    dropPx * (1 - t) * (1 - u * u) * config.floor -
-    stepPx * (entry.level - ROW_WOBBLE * entry.depthWithin) * (1 - ROW_STEP_TAPER * u * u)
-  );
+  return { frame, stems, scaleOf };
 }
 
 function layoutPass(
   state: BouquetState,
   layout: Layout,
   plan: StemPlan[],
+  composed: Composition,
   spreadFit: number,
   riseFit: number,
 ): PlacedStem[] {
-  const rows = buildRows(state, layout, plan);
-  const massHalf = massHalfPx(rows);
+  const { frame, spots, scaleOf } = composed;
 
-  // The dome is one surface over the whole arrangement, so how far across it a
-  // stem sits is measured against a single width rather than against its own
-  // row — otherwise the greenery, laid out wider, would ride its own curve and
-  // the two would not meet.
-  //
-  // That width is the FLOWERS' width, and deliberately so: it is the last thing
-  // in the layout that could have let a category disturb another. Measured
-  // across everything, adding a stem of eucalyptus would widen the dome and
-  // every flower in the bouquet would shift as a result. Greenery reaching past
-  // the flowers simply sits at the edge of the dome, where the curve has
-  // levelled off anyway.
-  const domeHalf = Math.max(massHalf, layout.ringSpacingPx) * spreadFit;
-
-  // How far apart the rows stand, capped so a deep bouquet of big flowers does
-  // not walk off the top of the frame.
-  const backRow = plan.reduce((deepest, entry) => Math.max(deepest, entry.level), 0);
-  const headroom = Math.max(0, layout.tieY - layout.height * FIT_TOP_MARGIN) * DOME_LIFT_CAP;
-  const stepPx =
-    backRow > 0
-      ? Math.min(ROW_STEP_RINGS * layout.ringSpacingPx, headroom / backRow)
-      : ROW_STEP_RINGS * layout.ringSpacingPx;
-  const dropPx = DOME_DROP_RINGS * layout.ringSpacingPx;
-
-  const riseOf = (entry: StemPlan) =>
-    getItemOrFallback(state.stems[entry.stemIndex].itemId).stemLengthMm *
-    CATEGORY_LEVELS[entry.category].rise *
-    layout.mmToPx *
-    riseFit;
-
-  // Everything that stands in a row of its own is placed first, because the
-  // filler is placed into the spaces they leave.
-  const bondPitch = categoryPitchPx(rows);
   const offset = new Map<StemPlan, { x: number; y: number }>();
-  for (const [, row] of rows) {
-    const config = CATEGORY_LEVELS[row.seats[0].plan.category];
-    const half = rowHalfPx(row, massHalf, layout.ringSpacingPx) * spreadFit;
-    // The brick bond is a fixed distance — a share of the row's own spacing —
-    // not a share of the row's width. Rows hold different numbers of stems, so
-    // measured as a share of the width it would shove a row of two half a
-    // bouquet sideways and barely move a row of five.
-    const bond =
-      config.stagger *
-      bondPitch[row.seats[0].plan.category] *
-      rowStaggerSign(row.seats[0].plan.level) *
-      spreadFit;
-    row.seats.forEach((seat, i) => {
-      // The +/-6% of seeded jitter the brief asks for, so a row is regular
-      // without being a picket fence.
-      const jitter = 1 + randSigned(state.seed, seat.plan.n, "radius") * RADIUS_JITTER;
-      const x =
-        openCentre(row.even[i], config.centreClear, seat.plan.level) * half * jitter + bond;
-      const u = domeHalf > 0 ? Math.min(1, Math.abs(x) / domeHalf) : 0;
-      offset.set(seat.plan, {
-        x,
-        y: -riseOf(seat.plan) + domeOffsetY(seat.plan, config, u, dropPx, stepPx),
-      });
+  for (const entry of plan) {
+    const spot = spots.get(entry.n);
+    if (!spot) continue;
+    // The rise fit shrinks the bouquet toward the tie point — but only the part
+    // of it that is above the front row's line. Scaled whole, a bouquet reined
+    // in for height pushes its own front row down into the mouth of the wrap,
+    // which is the one thing the dome's shape exists to prevent.
+    offset.set(entry, {
+      x: spot.x * spreadFit,
+      y: Math.min(spot.floor, spot.floor + (spot.y - spot.floor) * riseFit),
     });
   }
 
-  // Now the filler, into the gaps.
+  // Now the filler, into the gaps the flowers left.
   const gapFit = new Map<StemPlan, number>();
   const naturalWidth = (entry: StemPlan) =>
-    spriteWidthPx(
-      headWidthMm(state.stems[entry.stemIndex]),
-      layout.width,
-      scaleForLevel(entry.level),
-    );
-  placeInGaps(state, plan, offset, gapFit, stepPx, naturalWidth, naturalWidth);
+    sizePx(headWidthMm(state.stems[entry.stemIndex]), layout, scaleOf.get(entry) ?? 1);
+  placeInGaps(state, plan, offset, gapFit, frame.rowStep * riseFit, naturalWidth, naturalWidth);
 
   // How far the flowers actually reach, which is what "outside the flowers"
   // means. Floored by the widest bloom's own half-width: a bouquet with one
@@ -1261,7 +1327,7 @@ function layoutPass(
   const focalReach = plan.reduce((reach, entry) => {
     if (entry.category !== "focal") return reach;
     const stem = state.stems[entry.stemIndex];
-    const half = spriteWidthPx(headWidthMm(stem), layout.width, scaleForLevel(entry.level)) / 2;
+    const half = sizePx(headWidthMm(stem), layout, scaleOf.get(entry) ?? 1) / 2;
     return Math.max(reach, Math.abs(offset.get(entry)?.x ?? 0), half);
   }, 0);
 
@@ -1270,14 +1336,9 @@ function layoutPass(
     const stem = state.stems[stemIndex];
     const item = getItemOrFallback(stem.itemId);
 
-    // Size falls off toward the back, which is what perspective does. The 12%
-    // counts rows rather than spiral rings, so a whole row is one size and the
-    // courses read as courses.
-    const scale = scaleForLevel(level) * (gapFit.get(entry) ?? 1);
-    const { x: offsetX, y: offsetY } = offset.get(entry) ?? { x: 0, y: -riseOf(entry) };
-    // Measured against how far the flowers ACTUALLY reach, not the nominal
-    // width of their rows: whether a frond stands outside the flowers is the
-    // whole question, and jitter and the brick bond both move the answer.
+    const scale = (scaleOf.get(entry) ?? 1) * (gapFit.get(entry) ?? 1);
+    const risePx = item.stemLengthMm * CATEGORY_LEVELS[entry.category].rise * layout.mmToPx * riseFit;
+    const { x: offsetX, y: offsetY } = offset.get(entry) ?? { x: 0, y: -risePx };
     const layer = layerFor(item, level, focalReach > 0 ? Math.abs(offsetX) / focalReach : 1);
 
     // The variant is settled only once the stem's side is known, because an
@@ -1291,14 +1352,9 @@ function layoutPass(
     const headY = layout.tieY + offsetY;
 
     // Solve the rotation that carries the head from straight-up to where the
-    // arrangement wants it. atan2(x, -y) because 0 degrees points up the screen.
+    // composition wants it. atan2(x, -y) because 0 degrees points up the screen.
     const rotationDeg = Math.atan2(offsetX, -offsetY) / DEG;
     const axisLengthPx = Math.hypot(offsetX, offsetY);
-    // A stem tucked into a gap has no rise of its own to speak of — it went
-    // exactly where the flowers left room — so what it reports is where it
-    // ended up. The fit passes read this, and they should scale what actually
-    // happened rather than what was asked for.
-    const risePx = entry.gap ? -offsetY : riseOf(entry);
 
     return {
       key: `${stemIndex}:${stem.itemId}:${stem.variant}`,
@@ -1312,22 +1368,25 @@ function layoutPass(
       levels,
       slot,
       slotCount,
+      isAnchor: entry.isAnchor,
+      cluster: entry.cluster,
       scale,
       angleDeg: entry.angleDeg,
-      radiusPx: Math.hypot(offsetX, offsetY + riseOf(entry)),
+      radiusPx: Math.hypot(offsetX, offsetY + risePx),
       headX,
       headY,
       rotationDeg,
       axisLengthPx,
-      risePx,
-      widthPx: spriteWidthPx(widthMm, layout.width, scale),
-      bloomPx: spriteWidthPx(Math.min(item.bloomWidthMm, widthMm), layout.width, scale),
+      risePx: entry.gap ? -offsetY : risePx,
+      widthPx: sizePx(widthMm, layout, scale),
+      bloomPx: sizePx(Math.min(item.bloomWidthMm, widthMm), layout, scale),
       layer,
       paintDepth:
         level +
         (layer === "filler" && entry.gap?.kind === "between"
           ? PAINT_BETWEEN_ROWS
           : PAINT_WITHIN_ROW[layer]),
+      composition: spots.get(n),
     };
   });
 }
