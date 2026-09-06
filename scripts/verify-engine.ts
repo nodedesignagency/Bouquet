@@ -151,9 +151,21 @@ check(
   const radii = (category: string) => of(category).map((s) => s.radiusPx);
   const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
 
+  // Measured by reach, not by centre. A spray is foliage all the way down its
+  // stem, so it belongs rooted among the flowers with its tips carrying past
+  // them — placing its middle out where its tips should be strands the whole
+  // thing in empty space, which is precisely what it used to do.
+  const reach = (category: string) =>
+    Math.max(...of(category).map((s) => Math.abs(s.headX - l.tieX) + s.widthPx / 2));
+
   check(
-    "greenery sits outside the flower mass",
-    Math.min(...radii("green")) >= Math.max(...radii("focal")) * 0.85,
+    "greenery reaches past the flower mass",
+    reach("green") > reach("focal"),
+    `greens reach ${reach("green").toFixed(0)}px, flowers ${reach("focal").toFixed(0)}px`,
+  );
+  check(
+    "greenery is rooted among the flowers, not stranded outside them",
+    Math.min(...radii("green")) < Math.max(...radii("focal")),
     `nearest green ${Math.min(...radii("green")).toFixed(0)}px vs furthest flower ${Math.max(
       ...radii("focal"),
     ).toFixed(0)}px`,

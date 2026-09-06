@@ -55,14 +55,25 @@ images — it returns numbers, and the renderer draws them.
   wants it.
 - **Each category is placed in its own band.** Look at a real hand-tie and the
   three roles do different jobs: flowers pack a dense disc, filler threads
-  through the gaps between them, and greenery is not in the mass at all — it
-  radiates out and up beyond it, sparse and reaching, and it is what gives a
-  bouquet its outline. Running all three down one spiral could only ever make
-  greens "the outermost flowers", a ring further out at the same height and
-  density. So `CATEGORY_BAND` gives each one where it starts, how tightly it
-  packs, how high it carries, how far it may splay, and how much the collar's
-  floor pulls it down. A band starts at a multiple of the flower mass's own
-  radius, so greenery follows the flowers outward as more are added.
+  through the gaps between them, and greenery reaches out and up past the mass
+  to give the bouquet its outline. Running all three down one spiral could only
+  ever make greens "the outermost flowers", a ring further out at the same
+  height and density. So `CATEGORY_BAND` gives each one where it starts, how
+  tightly it packs, how high it carries, how far it may splay, and how much the
+  collar's floor pulls it down. A band starts at a multiple of the flower mass's
+  own radius, so greenery follows the flowers outward as more are added.
+- **Greenery is rooted among the flowers, not placed outside them.** Its tips
+  end up past the mass, but that is its *length* doing the reaching. A spray is
+  foliage all the way down its stem, so placing it out where its tips belong
+  strands the whole thing in empty space with a bare stem trailing back — which
+  is exactly what it did at first. Its band starts just inside the flowers' edge
+  instead.
+- **Foliage comes forward only at the edge.** `front-greens` used to be a blind
+  one-in-three coin, which promoted whichever green it landed on — including a
+  near-upright fern in the middle of the arrangement, painted over every flower.
+  That is not foliage in front of a bouquet, it is a fern lying on top of one.
+  A green is drawn in front only when it is on the near side of the dome *and*
+  out toward the edge.
 - **The golden angle stays global.** Stem *n* sits at `n * 137.5°` across the
   whole bouquet however many bands there are, so no two stems anywhere point the
   same way. Only radius and ring come from the band — which is what separates

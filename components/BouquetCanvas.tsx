@@ -26,6 +26,15 @@ import { StemSprite } from "./StemSprite";
 
 const STEM_WIDTH_MM = 6;
 
+/** The layers made of stems, which are the ones the wrap's foot cuts off. */
+const STEM_LAYERS: ReadonlySet<LayerName> = new Set<LayerName>([
+  "greens",
+  "filler",
+  "focal",
+  "front-greens",
+  "stem-bundle",
+]);
+
 interface Props {
   state: BouquetState;
   className?: string;
@@ -83,6 +92,17 @@ export function BouquetCanvas({ state, className, showGuides = false }: Props) {
           <feGaussianBlur stdDeviation={BACK_BLUR_PX} />
         </filter>
 
+        {/*
+          Nothing is drawn below the wrap's foot. A sprite slides down its own
+          axis to put its bloom where the spiral asked, which buries the cut end
+          inside the wrap — but a long stem can slide far enough to come out
+          under the base, and a stem poking out beneath the paper is not
+          something a bouquet does.
+        */}
+        <clipPath id="above-foot">
+          <rect x={0} y={0} width={CANVAS_WIDTH} height={wrap.baseBottomY ?? CANVAS_HEIGHT} />
+        </clipPath>
+
         {wrap.gradients.map((gradient) => (
           <linearGradient
             key={gradient.id}
@@ -117,6 +137,7 @@ export function BouquetCanvas({ state, className, showGuides = false }: Props) {
           key={layer}
           data-layer={layer}
           filter={BACK_LAYERS.has(layer) ? "url(#depth-back)" : undefined}
+          clipPath={STEM_LAYERS.has(layer) ? "url(#above-foot)" : undefined}
         >
           {renderLayer(layer, byLayer.get(layer) ?? [], placed, state, layout, wrap)}
         </g>

@@ -11,7 +11,7 @@
  */
 
 import { getItemOrFallback } from "./catalog";
-import { rand, randChance, randSigned } from "./rng";
+import { rand, randSigned } from "./rng";
 import type { BouquetState, CatalogItem, LayerName, Stem } from "./types";
 
 /* -------------------------------------------------------------------------- */
@@ -119,8 +119,12 @@ const FIT_SPRITE_MARGIN: Record<CatalogItem["category"], number> = {
   green: 0.15,
 };
 
-/** Share of greens promoted in front of the focal flowers. */
-const FRONT_GREEN_CHANCE = 0.3;
+/**
+ * How far out a green must sit before it may be drawn in front of the flowers,
+ * as a fraction of the arrangement's reach. Foliage drapes over the edge of a
+ * bouquet; it does not lie across the middle of one.
+ */
+const FRONT_GREEN_REACH = 0.55;
 
 /** A sprig is drawn as a cluster of florets when its bloom is much smaller. */
 const CLUSTER_THRESHOLD = 0.8;
@@ -244,11 +248,13 @@ const CATEGORY_BAND: Record<CatalogItem["category"], CategoryBand> = {
   // gypsophila actually sits — in the gaps, peeking between the blooms. It
   // paints behind the focals, so what shows is exactly the part in the gaps.
   filler: { bandStart: 0.4, bandStartMin: 0.5, spacing: 1.2, rise: 1.02, maxLean: 54, floor: 0.7 },
-  // Outside the mass entirely, reaching up and out. This is the band that gives
-  // a bouquet its outline, so it starts past where the flowers end, packs
-  // loosely, carries higher, splays much further, and is barely pulled down by
-  // the collar's floor.
-  green: { bandStart: 1.05, bandStartMin: 1.35, spacing: 1.15, rise: 1.16, maxLean: 66, floor: 0.3 },
+  // Rooted among the flowers, reaching past them. The tips of a frond end up
+  // outside the mass, but that is its LENGTH doing the reaching, not its
+  // position: a spray is foliage all the way down its stem, so placing it out
+  // where its tips belong strands the whole thing in empty space with a bare
+  // stem trailing back. Started just inside the flowers' edge instead, so the
+  // spray overlaps the mass and only its far end carries beyond.
+  green: { bandStart: 0.6, bandStartMin: 0.9, spacing: 0.9, rise: 1.12, maxLean: 48, floor: 0.45 },
 };
 
 export interface PlacementSlot {
@@ -565,7 +571,7 @@ function layoutPass(
       risePx,
       widthPx: spriteWidthPx(widthMm, layout.width, scale),
       bloomPx: spriteWidthPx(Math.min(item.bloomWidthMm, widthMm), layout.width, scale),
-      layer: layerFor(item, state.seed, n),
+      layer: layerFor(item, dyRaw > 0, maxRadius > 0 ? Math.abs(dx) / maxRadius : 0),
     };
   });
 }
@@ -593,14 +599,23 @@ function poseFor(item: CatalogItem, variantIndex: number, dx: number) {
 }
 
 /**
- * Which layer a stem paints into. Greens are split: most fall behind the
- * focals, a seeded minority are promoted in front so the arrangement has
- * foliage reading over the top of the flowers, as in the reference bouquets.
+ * Which layer a stem paints into.
+ *
+ * Greens are split, but not by a coin toss. Foliage that comes forward is
+ * foliage on the near side of the dome, out toward the edge — a frond draping
+ * over the rim of the bouquet. A blind chance promoted whichever green it
+ * happened to land on, and a near-upright fern in the middle of the
+ * arrangement, painted over every flower, is not foliage in front of a bouquet.
+ * It is a fern lying on top of one.
  */
-function layerFor(item: CatalogItem, seed: number, n: number): LayerName {
+function layerFor(
+  item: CatalogItem,
+  nearSide: boolean,
+  outFromCentre: number,
+): LayerName {
   if (item.category === "focal") return "focal";
   if (item.category === "filler") return "filler";
-  return randChance(seed, n, "front-green", FRONT_GREEN_CHANCE) ? "front-greens" : "greens";
+  return nearSide && outFromCentre > FRONT_GREEN_REACH ? "front-greens" : "greens";
 }
 
 /**

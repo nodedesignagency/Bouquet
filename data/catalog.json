@@ -362,7 +362,7 @@
     "category": "green",
     "colorway": "deep-green",
     "pricePerStem": 18,
-    "realWidthMm": 150,
+    "realWidthMm": 128,
     "bloomWidthMm": 28,
     "stemLengthMm": 165,
     "stemColor": "#4a6b3a",
@@ -381,7 +381,7 @@
         ],
         "headY": 883,
         "facing": "upright",
-        "widthMm": 145
+        "widthMm": 124
       },
       {
         "src": "/assets/fern-leatherleaf-arch-left.png",
@@ -395,7 +395,7 @@
         ],
         "headY": 859,
         "facing": "arch-left",
-        "widthMm": 158
+        "widthMm": 134
       },
       {
         "src": "/assets/fern-leatherleaf-arch-right.png",
@@ -409,7 +409,7 @@
         ],
         "headY": 637,
         "facing": "arch-right",
-        "widthMm": 165
+        "widthMm": 140
       },
       {
         "src": "/assets/fern-leatherleaf-sprig.png",
@@ -423,7 +423,7 @@
         ],
         "headY": 862,
         "facing": "sprig",
-        "widthMm": 140
+        "widthMm": 118
       }
     ]
   },
