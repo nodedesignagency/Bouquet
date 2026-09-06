@@ -16,7 +16,7 @@ import {
   placeStems,
   planStems,
   scaleForLevel,
-  sortWithinLayer,
+  paintOrder,
   spriteWidthPx,
   type PlacedStem,
 } from "../lib/engine";
@@ -179,26 +179,71 @@ check(
 }
 
 {
+  // One ladder for the whole bouquet. Counted per role, a green in "the back
+  // row" of two stood one step up while the flowers stood three, so foliage
+  // meant to be behind the bouquet ended up in front of half of it.
+  let broken = "";
+  for (const { name, state } of EVERY) {
+    const stems = lay(state).placed;
+    const depths = new Set(stems.map((s) => s.levels));
+    if (depths.size > 1) broken = `${name}: rows counted ${[...depths].join(" and ")} ways`;
+  }
+  check("every role is on the same depth ladder", broken === "", broken);
+}
+
+{
   // The user's rule, verbatim: what is drawn in front is what sits lower, and
   // what shows above the rest is what is behind. Paint order comes from the row,
   // and the row comes from the same number as the height, so the two cannot come
-  // apart — this asserts they actually don't.
+  // apart — this asserts they actually don't. Stated over the flowers, which are
+  // what "sits lower" is about; foliage and filler have their own heights within
+  // a row on purpose.
   let broken = "";
   for (const { name, state } of EVERY) {
-    for (const layer of ["focal", "greens", "filler"] as const) {
-      const order = sortWithinLayer(lay(state).placed.filter((s) => s.layer === layer));
-      for (let i = 1; i < order.length && !broken; i += 1) {
-        const behind = order[i - 1];
-        const infront = order[i];
-        if (infront.level === behind.level) continue;
-        if (infront.level > behind.level) broken = `${name} ${layer}: painted out of row order`;
-        else if (infront.headY < behind.headY) {
-          broken = `${name} ${layer}: ${infront.item.id} is painted in front of ${behind.item.id} but sits above it`;
-        }
+    const order = paintOrder(lay(state).placed).filter((s) => s.item.category === "focal");
+    for (let i = 1; i < order.length && !broken; i += 1) {
+      const behind = order[i - 1];
+      const infront = order[i];
+      if (infront.level === behind.level) continue;
+      if (infront.level > behind.level) broken = `${name}: flowers painted out of row order`;
+      else if (infront.headY < behind.headY) {
+        broken = `${name}: ${infront.item.id} is painted in front of ${behind.item.id} but sits above it`;
       }
     }
   }
   check("what is painted in front is what sits lower", broken === "", broken);
+}
+
+{
+  // The reason paint order moved off the layers entirely. Whatever a stem IS,
+  // it is drawn where it STANDS: a stem of gypsophila wedged between the front
+  // two rows goes over the flowers behind it, and a frond in the third row goes
+  // over the fourth. Painting by category instead put every green and every
+  // stem of filler behind every flower, which turned the foliage into a backdrop
+  // hung behind the bouquet rather than part of it.
+  let broken = "";
+  let interleaved = 0;
+  for (const { name, state } of EVERY) {
+    const order = paintOrder(lay(state).placed);
+    order.forEach((stem, i) => {
+      if (stem.item.category === "focal") return;
+      const over = order.slice(i + 1).filter((o) => o.item.category === "focal");
+      // Anything in a nearer row than a flower must be painted after it.
+      const wrong = over.find((flower) => flower.level > stem.level);
+      if (wrong) {
+        broken = `${name}: ${stem.item.id} in row ${stem.level} is painted behind ${wrong.item.id} in row ${wrong.level}`;
+      }
+      if (order.slice(0, i).some((o) => o.item.category === "focal" && o.level > stem.level)) {
+        interleaved += 1;
+      }
+    });
+  }
+  check("a stem is drawn where it stands, not behind everything of its kind", broken === "", broken);
+  check(
+    "foliage and filler are in among the flowers, not behind all of them",
+    interleaved > 0,
+    "nothing but flowers was ever painted over a flower",
+  );
 }
 
 {
@@ -215,7 +260,7 @@ check(
 
 /** How much of `stem`'s head is hidden by the flowers painted in front of it. */
 function buriedFraction(stem: PlacedStem, layer: PlacedStem[]): number {
-  const order = sortWithinLayer(layer);
+  const order = paintOrder(layer);
   const at = order.indexOf(stem);
   const infront = order.slice(at + 1);
   if (infront.length === 0) return 0;

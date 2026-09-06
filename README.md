@@ -175,24 +175,60 @@ back rows, and how much of the rim's dip it takes.
   still too tall is one whose rows are too tall, and the row step is capped for
   exactly that.
 
-### Layers
+### Layers and depth
 
-Painted back to front, and nothing but `LAYER_ORDER` decides the order:
+Painted back to front, and **depth alone decides which stem lands over which**:
 
 ```
-wrap-back · greens · filler · focal · front-greens · stem-bundle · wrap-front · tape · ribbon
+wrap-back · stems (back row → front row) · stem-bundle · wrap-front · tape · ribbon
 ```
 
-`wrap-back`, `greens` and `filler` sit behind the focal flowers and get
-brightness 0.94 and a 1px blur, applied once as a shared SVG filter rather than
-per sprite. Greens that stand in the front row, outside the flowers, are promoted
-to `front-greens` and drape over the rim.
+The stems used to be four layers — greens, filler, focal, front-greens — emitted
+in that order. Which meant a green in the front row was still painted behind a
+flower in the back row, and a stem of gypsophila tucked into a gap was painted
+behind every flower in the bouquet whichever gap it went into. The foliage
+became a flat backdrop hung behind the arrangement rather than part of it: a
+wall of gypsophila *behind* the roses instead of gypsophila *among* them.
 
-**Within a layer, paint order is the row**: back row first, front row last, with
-height breaking ties inside a row. This used to be a guess from the head's
-height, which was the best a continuous dome could offer and was wrong often
-enough to notice. Now the row *is* the depth, so the paint order and the geometry
-come from the same number and cannot disagree.
+So paint order comes from one number, `paintDepth`. Whole numbers are the rows;
+the fraction is where a stem sits within its row's depth, and it is what a stem
+*is* that sets it:
+
+| | within its row |
+| --- | --- |
+| foliage | `+0.35` — behind the blooms of its own row |
+| filler in a seam or at an edge | `+0.25` — behind them, a little nearer |
+| filler in the triangle between two rows | `+0.45` — in front of the row behind, behind the row it is wedged into |
+| a flower | `0` |
+| foliage draping over the rim | `−0.45` — in front of the row it stands in |
+
+Every offset is strictly inside ±0.5, which is what guarantees the thing that
+matters: **a stem from a further row is never painted over one from a nearer
+row**, whatever the two of them are.
+
+**Every role is on the same depth ladder.** Each used to count its own rows,
+which quietly meant they were not talking about the same thing: with twelve
+flowers in four rows and four greens in two, a green in "the back row" stood one
+step up while the flowers stood three, so the foliage that was supposed to be
+behind the bouquet was in front of half of it. The roles differ in how they are
+spread *along* the depth — flowers weighted to the front, foliage to the back,
+filler wedged between rows — but the depth itself is one ladder.
+
+**The depth treatment is graduated by row.** Brightness 0.94 and a 1px blur at
+the very back, none at all in the front row, and the rows between get their
+share — one shared SVG filter per depth band rather than per sprite. As a
+fixed set of layers it could only ever say "foliage is far away", which is not
+what depth is: a bouquet's back row of *flowers* is far away too.
+
+**A sprig of gypsophila is broken to fit its gap.** A whole cut stem's spray is
+half again as wide as a rose head, and a florist filling a bouquet does not push
+the whole thing in — they break off what the space will take. Left whole, and
+now that filler is drawn at its own depth rather than hidden behind everything,
+six sprigs of it smother twelve roses. It is cut back to roughly what the gap
+will take and never left wider than the bloom beside it. This is a *scale*,
+which is the term the sizing rule already leaves free — it is where the
+12%-per-row falloff lives too — so the sprig is still sized from its real
+millimetres, just less of a sprig.
 
 ### Drawing a stem
 

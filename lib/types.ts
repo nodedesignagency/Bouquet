@@ -161,13 +161,35 @@ export interface BouquetState {
   hasTape: boolean;
 }
 
-/** Layer names, listed back to front. Index in this array IS the paint order. */
+/**
+ * What a stem is.
+ *
+ * This used to be its layer, and the layer decided paint order: every green
+ * behind every flower, every stem of filler behind every flower, whatever
+ * depth any of them was actually at. That made the foliage a flat backdrop —
+ * a wall of gypsophila behind the roses rather than gypsophila among them —
+ * because no matter which gap a stem went into it was painted behind the
+ * entire arrangement.
+ *
+ * So this no longer decides paint order. Depth does. What a stem IS only
+ * settles where it sits among its neighbours at the SAME depth: foliage behind
+ * the blooms of its own row, filler between the two rows it is tucked between,
+ * and a frond draping over the rim in front of the row it stands in.
+ */
+export const STEM_LAYERS = ["greens", "filler", "focal", "front-greens"] as const;
+
+export type StemLayer = (typeof STEM_LAYERS)[number];
+
+/**
+ * The canvas's own groups, back to front. Index in this array IS the order they
+ * are drawn in.
+ *
+ * The stems are one group, painted back row to front row; which stem lands over
+ * which is `paintDepth`, not this list.
+ */
 export const LAYER_ORDER = [
   "wrap-back",
-  "greens",
-  "filler",
-  "focal",
-  "front-greens",
+  "stems",
   "stem-bundle",
   "wrap-front",
   "tape",
@@ -176,13 +198,20 @@ export const LAYER_ORDER = [
 
 export type LayerName = (typeof LAYER_ORDER)[number];
 
-/** Layers that sit behind the focal flowers get the depth treatment. */
-export const BACK_LAYERS: ReadonlySet<LayerName> = new Set<LayerName>([
-  "wrap-back",
-  "greens",
-  "filler",
-]);
-
-/** Depth treatment applied to back layers. */
+/**
+ * Depth treatment at the very back of the arrangement: brightness 0.94 and a
+ * 1px blur, per the brief.
+ *
+ * Applied by row now rather than to a fixed set of layers, and graduated — the
+ * front row gets none of it, the back row all of it, and the rows between get
+ * their share. A layer-wide setting could only ever say "foliage is far away",
+ * which is not what depth is; a bouquet's back row of FLOWERS is far away too.
+ */
 export const BACK_BRIGHTNESS = 0.94;
 export const BACK_BLUR_PX = 1;
+
+/** How much of the treatment a row `level` of `deepest` gets. */
+export function rowDepth(level: number, deepest: number): { brightness: number; blur: number } {
+  const t = deepest > 0 ? Math.min(1, Math.max(0, level / deepest)) : 0;
+  return { brightness: 1 - (1 - BACK_BRIGHTNESS) * t, blur: BACK_BLUR_PX * t };
+}

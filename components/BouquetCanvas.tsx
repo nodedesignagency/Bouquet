@@ -5,7 +5,7 @@ import { useMemo } from "react";
 import { CANVAS_HEIGHT, CANVAS_WIDTH, SVG_ROOT_ID } from "@/lib/canvas";
 import {
   computeLayout,
-  groupByLayer,
+  depthRuns,
   placeStems,
   px,
   spriteWidthPx,
@@ -14,10 +14,8 @@ import {
 } from "@/lib/engine";
 import { rand, randSigned } from "@/lib/rng";
 import {
-  BACK_BLUR_PX,
-  BACK_BRIGHTNESS,
-  BACK_LAYERS,
   LAYER_ORDER,
+  rowDepth,
   type BouquetState,
   type LayerName,
 } from "@/lib/types";
@@ -26,14 +24,8 @@ import { StemSprite } from "./StemSprite";
 
 const STEM_WIDTH_MM = 6;
 
-/** The layers made of stems, which are the ones the wrap's foot cuts off. */
-const STEM_LAYERS: ReadonlySet<LayerName> = new Set<LayerName>([
-  "greens",
-  "filler",
-  "focal",
-  "front-greens",
-  "stem-bundle",
-]);
+/** The groups made of stems, which are the ones the wrap's foot cuts off. */
+const CUT_BY_THE_WRAP: ReadonlySet<LayerName> = new Set<LayerName>(["stems", "stem-bundle"]);
 
 interface Props {
   state: BouquetState;
@@ -45,22 +37,33 @@ interface Props {
 /**
  * The whole bouquet, drawn back to front.
  *
- * Paint order is `LAYER_ORDER` and nothing else decides it: each layer is one
- * <g>, emitted in that sequence. Layers behind the focal flowers are pushed
- * back visually with a shared filter rather than by hand-tuning opacity per
- * sprite.
+ * The stems are drawn in one pass, deepest first, and depth alone decides which
+ * lands over which — the arrangement's rows painted back to front, with the
+ * foliage and filler in among them at whatever depth they stand. Drawing them
+ * as separate layers instead put every green and every stem of gypsophila
+ * behind every flower, which made the foliage a backdrop hung behind the
+ * bouquet rather than part of it.
+ *
+ * Each depth band is one <g> carrying its share of the treatment that pushes it
+ * back — a shared filter per band rather than hand-tuned opacity per sprite.
  */
 export function BouquetCanvas({ state, className, showGuides = false }: Props) {
-  const { layout, placed, byLayer, wrap } = useMemo(() => {
+  const { layout, placed, runs, wrap } = useMemo(() => {
     const nextLayout = computeLayout(CANVAS_WIDTH, CANVAS_HEIGHT, state);
     const nextPlaced = placeStems(state, nextLayout);
     return {
       layout: nextLayout,
       placed: nextPlaced,
-      byLayer: groupByLayer(nextPlaced),
+      runs: depthRuns(nextPlaced),
       wrap: buildWrap(state, nextLayout, nextPlaced),
     };
   }, [state]);
+
+  // How deep the arrangement goes, which is what the depth treatment is
+  // measured against: the back row of a two-row posy is not as far away as the
+  // back row of a bouquet of thirty.
+  const deepest = runs.reduce((back, run) => Math.max(back, run.band), 0);
+  const bands = [...new Set(runs.map((run) => run.band))].sort((a, b) => a - b);
 
   return (
     <svg
@@ -80,17 +83,33 @@ export function BouquetCanvas({ state, className, showGuides = false }: Props) {
         </radialGradient>
 
         {/*
-          Back layers get brightness 0.94 and a 1px blur. Both are expressed in
-          canvas units, so they hold at any display size and in the export.
+          The back of the arrangement gets brightness 0.94 and a 1px blur, and
+          the rows in front of it get their share — one filter per band. Both
+          are expressed in canvas units, so they hold at any display size and in
+          the export.
         */}
-        <filter id="depth-back" x="-25%" y="-25%" width="150%" height="150%">
-          <feComponentTransfer>
-            <feFuncR type="linear" slope={BACK_BRIGHTNESS} />
-            <feFuncG type="linear" slope={BACK_BRIGHTNESS} />
-            <feFuncB type="linear" slope={BACK_BRIGHTNESS} />
-          </feComponentTransfer>
-          <feGaussianBlur stdDeviation={BACK_BLUR_PX} />
-        </filter>
+        {bands
+          .filter((band) => band > 0)
+          .map((band) => {
+            const { brightness, blur } = rowDepth(band, deepest);
+            return (
+              <filter
+                key={band}
+                id={`depth-${band}`}
+                x="-25%"
+                y="-25%"
+                width="150%"
+                height="150%"
+              >
+                <feComponentTransfer>
+                  <feFuncR type="linear" slope={px(brightness)} />
+                  <feFuncG type="linear" slope={px(brightness)} />
+                  <feFuncB type="linear" slope={px(brightness)} />
+                </feComponentTransfer>
+                <feGaussianBlur stdDeviation={px(blur)} />
+              </filter>
+            );
+          })}
 
         {/*
           Nothing is drawn below the wrap's foot. A sprite slides down its own
@@ -136,10 +155,27 @@ export function BouquetCanvas({ state, className, showGuides = false }: Props) {
         <g
           key={layer}
           data-layer={layer}
-          filter={BACK_LAYERS.has(layer) ? "url(#depth-back)" : undefined}
-          clipPath={STEM_LAYERS.has(layer) ? "url(#above-foot)" : undefined}
+          filter={layer === "wrap-back" && deepest > 0 ? `url(#depth-${deepest})` : undefined}
+          clipPath={CUT_BY_THE_WRAP.has(layer) ? "url(#above-foot)" : undefined}
         >
-          {renderLayer(layer, byLayer.get(layer) ?? [], placed, state, layout, wrap)}
+          {layer === "stems"
+            ? runs.map((run, i) => (
+                <g
+                  key={i}
+                  data-depth={run.band}
+                  filter={run.band > 0 ? `url(#depth-${run.band})` : undefined}
+                >
+                  {run.stems.map((stem) => (
+                    <StemSprite
+                      key={stem.key}
+                      placed={stem}
+                      layout={layout}
+                      seed={state.seed}
+                    />
+                  ))}
+                </g>
+              ))
+            : renderLayer(layer, placed, state, layout, wrap)}
         </g>
       ))}
 
@@ -150,20 +186,12 @@ export function BouquetCanvas({ state, className, showGuides = false }: Props) {
 
 function renderLayer(
   layer: LayerName,
-  stems: PlacedStem[],
   allStems: PlacedStem[],
   state: BouquetState,
   layout: Layout,
   wrap: ReturnType<typeof buildWrap>,
 ) {
   switch (layer) {
-    case "greens":
-    case "filler":
-    case "focal":
-    case "front-greens":
-      return stems.map((placed) => (
-        <StemSprite key={placed.key} placed={placed} layout={layout} seed={state.seed} />
-      ));
     case "stem-bundle":
       return (
         <StemBundle

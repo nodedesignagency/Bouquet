@@ -12,7 +12,7 @@
 
 import { getItemOrFallback } from "./catalog";
 import { rand, randSigned } from "./rng";
-import type { BouquetState, CatalogItem, LayerName, Stem, StemCategory } from "./types";
+import type { BouquetState, CatalogItem, Stem, StemCategory, StemLayer } from "./types";
 
 /* -------------------------------------------------------------------------- */
 /* Constants                                                                    */
@@ -214,6 +214,23 @@ const DOME_LIFT_CAP = 0.4;
 const FILLER_PEEK = 0.18;
 const FILLER_STACK = 0.55;
 const FILLER_WANDER = 0.22;
+
+/**
+ * A sprig of gypsophila is broken to fit the gap it goes into.
+ *
+ * A whole cut stem's spray is half again as wide as a rose head, and a florist
+ * filling a bouquet does not push the whole thing in — they break off what the
+ * space will take. Left whole, and now that filler is drawn at its own depth
+ * rather than hidden behind everything, six sprigs of it smother twelve roses.
+ *
+ * This is a scale, which is the term the sizing rule already leaves free (it is
+ * where the 12%-per-row falloff lives too), so the sprig is still sized from its
+ * real millimetres — just less of a sprig.
+ */
+const GAP_FIT = 1.9;
+const GAP_FIT_MIN = 0.4;
+/** And never wider than this much of the bloom it is tucked beside. */
+const GAP_FIT_OF_BLOOM = 0.8;
 
 /**
  * How far a stem may stand proud of its own row, as a share of the row step.
@@ -554,6 +571,20 @@ export function planStems(state: Pick<BouquetState, "seed" | "stems">): StemPlan
     };
   });
 
+  // How deep the bouquet is, decided ONCE for the whole arrangement.
+  //
+  // Each role used to count its own rows, which quietly meant they were not
+  // talking about the same thing: with twelve flowers in four rows and four
+  // greens in two, a green in "the back row" stood one step up while the
+  // flowers stood three, so the foliage that was supposed to be behind the
+  // bouquet was in front of half of it. The roles differ in how they are spread
+  // ALONG the depth — flowers weighted to the front, foliage to the back,
+  // filler wedged between rows — but the depth itself is one ladder, and every
+  // stem's height, size and paint order are rungs on it.
+  const counts = { focal: 0, filler: 0, green: 0 };
+  for (const entry of spiral) counts[entry.slot.category] += 1;
+  const levels = levelCount(Math.max(counts.focal, counts.filler, counts.green));
+
   const plan: StemPlan[] = [];
 
   for (const category of ["focal", "filler", "green"] as const) {
@@ -565,7 +596,6 @@ export function planStems(state: Pick<BouquetState, "seed" | "stems">): StemPlan
     if (category === "filler") {
       const gaps = gapsIn(plan);
       if (gaps.length > 0) {
-        const focalLevels = plan.reduce((deepest, e) => Math.max(deepest, e.levels), 1);
         members.forEach((entry, i) => {
           const gap = { ...gaps[i % gaps.length], repeat: Math.floor(i / gaps.length) };
           plan.push({
@@ -574,7 +604,7 @@ export function planStems(state: Pick<BouquetState, "seed" | "stems">): StemPlan
             // Filler takes the row of the flower whose gap it sits in, so it is
             // painted, sized and shaded as something at that depth.
             level: gap.level,
-            levels: focalLevels,
+            levels,
             slot: i,
             slotCount: members.length,
             depthWithin: entry.planZ / Math.max(1, ...members.map((m) => m.planRadius)),
@@ -587,7 +617,6 @@ export function planStems(state: Pick<BouquetState, "seed" | "stems">): StemPlan
     }
 
     const config = CATEGORY_LEVELS[category];
-    const levels = levelCount(members.length);
     const capacities = levelCapacities(members.length, levels, config.backBias);
     const maxPlanRadius = Math.max(1, ...members.map((e) => e.planRadius));
 
@@ -860,7 +889,15 @@ export interface PlacedStem {
   widthPx: number;
   /** On-screen width of a single bloom within the sprite. */
   bloomPx: number;
-  layer: LayerName;
+  layer: StemLayer;
+  /**
+   * Where this stem sits in the stack, back to front — the ONE number paint
+   * order comes from. Whole numbers are the rows; the fraction is where the
+   * stem sits within its row's depth, so a stem of gypsophila tucked between
+   * two rows really is drawn in front of the row behind it and behind the row
+   * it is tucked into.
+   */
+  paintDepth: number;
 }
 
 /**
@@ -1206,13 +1243,27 @@ function layoutPass(
   }
 
   // Now the filler, into the gaps.
-  placeInGaps(state, plan, offset, stepPx);
+  const gapFit = new Map<StemPlan, number>();
+  const naturalWidth = (entry: StemPlan) =>
+    spriteWidthPx(
+      headWidthMm(state.stems[entry.stemIndex]),
+      layout.width,
+      scaleForLevel(entry.level),
+    );
+  placeInGaps(state, plan, offset, gapFit, stepPx, naturalWidth, naturalWidth);
 
-  const focalReach = plan.reduce(
-    (reach, entry) =>
-      entry.category === "focal" ? Math.max(reach, Math.abs(offset.get(entry)?.x ?? 0)) : reach,
-    0,
-  );
+  // How far the flowers actually reach, which is what "outside the flowers"
+  // means. Floored by the widest bloom's own half-width: a bouquet with one
+  // flower in the middle of it has every head at x = 0, and measured on centres
+  // alone that makes every stem of foliage in the bouquet "outside the
+  // flowers" — which is how a eucalyptus sprig ended up painted across the face
+  // of a sunflower.
+  const focalReach = plan.reduce((reach, entry) => {
+    if (entry.category !== "focal") return reach;
+    const stem = state.stems[entry.stemIndex];
+    const half = spriteWidthPx(headWidthMm(stem), layout.width, scaleForLevel(entry.level)) / 2;
+    return Math.max(reach, Math.abs(offset.get(entry)?.x ?? 0), half);
+  }, 0);
 
   return plan.map((entry) => {
     const { stemIndex, n, bandIndex, level, levels, slot, slotCount } = entry;
@@ -1222,8 +1273,12 @@ function layoutPass(
     // Size falls off toward the back, which is what perspective does. The 12%
     // counts rows rather than spiral rings, so a whole row is one size and the
     // courses read as courses.
-    const scale = scaleForLevel(level);
+    const scale = scaleForLevel(level) * (gapFit.get(entry) ?? 1);
     const { x: offsetX, y: offsetY } = offset.get(entry) ?? { x: 0, y: -riseOf(entry) };
+    // Measured against how far the flowers ACTUALLY reach, not the nominal
+    // width of their rows: whether a frond stands outside the flowers is the
+    // whole question, and jitter and the brick bond both move the answer.
+    const layer = layerFor(item, level, focalReach > 0 ? Math.abs(offsetX) / focalReach : 1);
 
     // The variant is settled only once the stem's side is known, because an
     // arching frond has to arc away from the bouquet rather than back into it.
@@ -1267,10 +1322,12 @@ function layoutPass(
       risePx,
       widthPx: spriteWidthPx(widthMm, layout.width, scale),
       bloomPx: spriteWidthPx(Math.min(item.bloomWidthMm, widthMm), layout.width, scale),
-      // Measured against how far the flowers ACTUALLY reach, not the nominal
-      // width of their rows: whether a frond stands outside the flowers is the
-      // whole question, and jitter and the brick bond both move the answer.
-      layer: layerFor(item, level, focalReach > 0 ? Math.abs(offsetX) / focalReach : 1),
+      layer,
+      paintDepth:
+        level +
+        (layer === "filler" && entry.gap?.kind === "between"
+          ? PAINT_BETWEEN_ROWS
+          : PAINT_WITHIN_ROW[layer]),
     };
   });
 }
@@ -1287,7 +1344,10 @@ function placeInGaps(
   state: BouquetState,
   plan: StemPlan[],
   offset: Map<StemPlan, { x: number; y: number }>,
+  fit: Map<StemPlan, number>,
   stepPx: number,
+  naturalWidthPx: (entry: StemPlan) => number,
+  seatWidthPx: (entry: StemPlan) => number,
 ) {
   const seatsByLevel = new Map<number, Array<{ entry: StemPlan; x: number; y: number }>>();
   for (const entry of plan) {
@@ -1353,6 +1413,18 @@ function placeInGaps(
     y += randSigned(state.seed, entry.n, "gap-y") * stepPx * FILLER_WANDER;
 
     offset.set(entry, { x, y });
+    // Broken to fit: the sprig is cut back to roughly what the gap will take,
+    // and never left wider than the bloom it is tucked beside. Room alone is
+    // not enough — a back row of two flowers has an enormous gap between them,
+    // and a sprig sized to fill it covers a whole rose.
+    const natural = naturalWidthPx(entry);
+    const beside = seat.entry ? seatWidthPx(seat.entry) * GAP_FIT_OF_BLOOM : natural;
+    fit.set(
+      entry,
+      natural > 0
+        ? Math.min(1, Math.max(GAP_FIT_MIN, Math.min(room * GAP_FIT, beside) / natural))
+        : 1,
+    );
   }
 }
 
@@ -1388,37 +1460,69 @@ function poseFor(item: CatalogItem, variantIndex: number, dx: number) {
  * the flowers. Everything else is background, and background is what the greens
  * layer is for.
  */
-function layerFor(item: CatalogItem, level: number, outFromMass: number): LayerName {
+function layerFor(item: CatalogItem, level: number, outFromMass: number): StemLayer {
   if (item.category === "focal") return "focal";
   if (item.category === "filler") return "filler";
   return level === 0 && outFromMass > FRONT_GREEN_REACH ? "front-greens" : "greens";
 }
 
 /**
- * Paint order within a layer: back row first, so the front row lands on top.
+ * Where each kind of stem sits within its own row's depth.
  *
- * This used to be a guess from the head's height, which was the best a
- * continuous dome could offer and was wrong often enough to notice. Now the row
- * IS the depth, so the paint order and the geometry come from the same number
- * and cannot disagree: a flower drawn in front is always the one sitting lower
- * and nearer the rim.
+ * Strictly between -0.5 and 0.5, which is what guarantees the thing that
+ * matters: a stem from a further row is NEVER painted over one from a nearer
+ * row, whatever the two of them are.
  *
- * Height still breaks ties within a row, because two stems at the same depth
- * read better with the lower one in front.
+ * Within a row it is the old layer order, and for the same reasons: foliage
+ * behind the blooms, filler behind them but nearer, and a frond that drapes
+ * over the rim of the bouquet in front of the row it stands in. Filler tucked
+ * into the triangle between two rows is the interesting one — it belongs half a
+ * row forward, in front of the row behind it and behind the row it is wedged
+ * into, which is exactly where a stem of gypsophila is.
  */
-export function sortWithinLayer(stems: PlacedStem[]): PlacedStem[] {
-  return [...stems].sort((a, b) => b.level - a.level || a.headY - b.headY || a.n - b.n);
+const PAINT_WITHIN_ROW: Record<StemLayer, number> = {
+  greens: 0.35,
+  filler: 0.25,
+  focal: 0,
+  "front-greens": -0.45,
+};
+const PAINT_BETWEEN_ROWS = 0.45;
+
+/**
+ * Paint order for the whole arrangement, back to front.
+ *
+ * The row IS the depth, so one sort over every stem does it — there is nothing
+ * left for a layer to decide. This used to be four separate layers each sorted
+ * on its own, which meant a green in the front row was still painted behind a
+ * flower in the back row, and the foliage read as a backdrop hung behind the
+ * bouquet rather than as part of it.
+ *
+ * Height breaks ties at equal depth, because two stems at the same depth read
+ * better with the lower one in front.
+ */
+export function paintOrder(stems: PlacedStem[]): PlacedStem[] {
+  return [...stems].sort(
+    (a, b) => b.paintDepth - a.paintDepth || a.headY - b.headY || a.n - b.n,
+  );
 }
 
-export function groupByLayer(placed: PlacedStem[]): Map<LayerName, PlacedStem[]> {
-  const groups = new Map<LayerName, PlacedStem[]>();
-  for (const stem of placed) {
-    const bucket = groups.get(stem.layer);
-    if (bucket) bucket.push(stem);
-    else groups.set(stem.layer, [stem]);
+/**
+ * The stems grouped into the runs that share a depth treatment, back to front.
+ *
+ * Rounding a depth is monotone, so sorting by depth already puts every stem
+ * that shares a band next to its neighbours — the runs fall out of the paint
+ * order rather than being imposed on it, and each one can be drawn as a single
+ * group with a single filter.
+ */
+export function depthRuns(stems: PlacedStem[]): Array<{ band: number; stems: PlacedStem[] }> {
+  const runs: Array<{ band: number; stems: PlacedStem[] }> = [];
+  for (const stem of paintOrder(stems)) {
+    const band = Math.max(0, Math.round(stem.paintDepth));
+    const last = runs[runs.length - 1];
+    if (last && last.band === band) last.stems.push(stem);
+    else runs.push({ band, stems: [stem] });
   }
-  for (const [layer, bucket] of groups) groups.set(layer, sortWithinLayer(bucket));
-  return groups;
+  return runs;
 }
 
 /* -------------------------------------------------------------------------- */
