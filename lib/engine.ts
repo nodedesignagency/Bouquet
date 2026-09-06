@@ -93,15 +93,20 @@ const FIT_HALF_WIDTH = 0.5;
 const FIT_TOP_MARGIN = 0.03;
 
 /**
- * How far a stem may lean out from vertical, in degrees.
+ * How far a stem may lean out from vertical is set per band, in
+ * `CATEGORY_BAND` — a flower that leans like a frond looks like it has fallen
+ * over, and a frond that leans like a flower does not frame anything.
  *
- * A placeholder circle is rotationally symmetric, so it hid this completely —
- * the arrangement was happily rotating outer stems 70 degrees and it read as a
- * dome. A photograph of a flower rotated 70 degrees reads as a flower lying on
- * its side. In a real hand-tie the outermost stems lean about this far and no
- * further.
+ * A placeholder circle is rotationally symmetric, so this was hidden entirely
+ * at first: the arrangement was rotating outer stems 70 degrees and it still
+ * read as a dome. A photograph of a flower at 70 degrees reads as a flower
+ * lying on its side.
  */
-const MAX_LEAN_DEG = 42;
+
+/** Where a band's first stem sits, in pixels from the tie point. */
+function bandStartPx(band: CategoryBand, focalRadius: number, ringSpacingPx: number): number {
+  return Math.max(focalRadius * band.bandStart, ringSpacingPx * band.bandStartMin);
+}
 
 /**
  * How much of its own width a sprite must keep inside the frame, by category.
@@ -186,10 +191,10 @@ export function px(value: number): number {
 /**
  * Placement order, which is not the same as the order stems were added.
  *
- * Focals take the middle of the spiral, filler sits around them, greens land on
- * the outside — the way a florist actually builds up a hand-tie. Within a
- * category the user's own order is preserved, so the sort is stable and adding
- * a stem never reshuffles the ones already placed.
+ * Focals take the middle, filler sits around them, greens land on the outside —
+ * the way a florist actually builds up a hand-tie. Within a category the user's
+ * own order is preserved, so the sort is stable and adding a stem never
+ * reshuffles the ones already placed.
  */
 const CATEGORY_RANK: Record<CatalogItem["category"], number> = {
   focal: 0,
@@ -197,27 +202,122 @@ const CATEGORY_RANK: Record<CatalogItem["category"], number> = {
   green: 2,
 };
 
-export function placementOrder(stems: Stem[]): number[] {
+/**
+ * How each kind of stem is placed, which is not a matter of degree.
+ *
+ * Look at a real hand-tie and the three roles do different jobs. The flowers
+ * pack a dense disc in the middle. Filler threads through the gaps between them
+ * and carries a little past the edge. Greenery is not in the mass at all — it
+ * radiates out and up well beyond it, sparse and reaching, and it is what gives
+ * a bouquet its outline.
+ *
+ * Running all three down one spiral could only ever make greens "the outermost
+ * flowers": a ring or two further out, the same height, leaning the same
+ * amount, packed at the same density. So each category gets its own band
+ * instead — where it starts, how tightly it packs, how high it carries, how far
+ * it may splay, and how much the collar's floor pulls it down.
+ *
+ * `bandStart` is a multiple of the flower mass's own radius, so the greenery
+ * follows the flowers outward as more are added rather than being pinned to a
+ * fixed distance.
+ */
+interface CategoryBand {
+  /** Where this band's first stem sits, as a multiple of the flower radius. */
+  bandStart: number;
+  /** Floor for that, in ring spacings, for bouquets with few or no flowers. */
+  bandStartMin: number;
+  /** How tightly this category packs, relative to the flowers. */
+  spacing: number;
+  /** How high it carries its heads, relative to its cut length. */
+  rise: number;
+  /** How far it may lean out from vertical, in degrees. */
+  maxLean: number;
+  /** How much the collar's floor drags it down; greens keep their height. */
+  floor: number;
+}
+
+const CATEGORY_BAND: Record<CatalogItem["category"], CategoryBand> = {
+  // The mass. A dense phyllotaxis disc, upright, sitting in the collar.
+  focal: { bandStart: 0, bandStartMin: 0, spacing: 1, rise: 1, maxLean: 42, floor: 1 },
+  // Threaded through the flowers rather than ringed around them: filler starts
+  // inside the disc and carries a little past its edge, which is where
+  // gypsophila actually sits — in the gaps, peeking between the blooms. It
+  // paints behind the focals, so what shows is exactly the part in the gaps.
+  filler: { bandStart: 0.4, bandStartMin: 0.5, spacing: 1.2, rise: 1.02, maxLean: 54, floor: 0.7 },
+  // Outside the mass entirely, reaching up and out. This is the band that gives
+  // a bouquet its outline, so it starts past where the flowers end, packs
+  // loosely, carries higher, splays much further, and is barely pulled down by
+  // the collar's floor.
+  green: { bandStart: 1.05, bandStartMin: 1.35, spacing: 1.15, rise: 1.16, maxLean: 66, floor: 0.3 },
+};
+
+export interface PlacementSlot {
+  /** Index into `state.stems`. */
+  stemIndex: number;
+  /** Ordinal across the whole bouquet — what sets the golden angle. */
+  n: number;
+  /** Ordinal within this stem's own category — what sets its radius and ring. */
+  bandIndex: number;
+  category: CatalogItem["category"];
+}
+
+/**
+ * Every stem's place in the running order, and its place within its own band.
+ *
+ * The angle stays global: stem n sits at `n * 137.5°` across the whole bouquet,
+ * so no two stems anywhere point the same way. Only the radius and ring come
+ * from the band, which is what separates the greenery from the flowers without
+ * disturbing the phyllotaxis.
+ */
+export function placementSlots(stems: Stem[]): PlacementSlot[] {
+  const counts: Record<CatalogItem["category"], number> = { focal: 0, filler: 0, green: 0 };
+
   return stems
-    .map((stem, i) => ({ i, rank: CATEGORY_RANK[getItemOrFallback(stem.itemId).category] }))
-    .sort((a, b) => a.rank - b.rank || a.i - b.i)
-    .map((entry) => entry.i);
+    .map((stem, i) => ({ i, category: getItemOrFallback(stem.itemId).category }))
+    .sort((a, b) => CATEGORY_RANK[a.category] - CATEGORY_RANK[b.category] || a.i - b.i)
+    .map((entry, n) => ({
+      stemIndex: entry.i,
+      n,
+      bandIndex: counts[entry.category]++,
+      category: entry.category,
+    }));
+}
+
+export function placementOrder(stems: Stem[]): number[] {
+  return placementSlots(stems).map((slot) => slot.stemIndex);
 }
 
 /**
  * Ring spacing adapts to what is actually in the bouquet: a fistful of
  * sunflowers needs more room between positions than a posy of lavender.
  * Still a pure function of state, so determinism holds.
+ *
+ * Measured over the flowers alone, since they are the mass whose density this
+ * sets — and so that adding greenery, which sits in its own band further out,
+ * does not reflow the flowers in the middle. A bouquet of nothing but foliage
+ * falls back to measuring whatever it has.
  */
 function ringSpacingMm(stems: Stem[]): number {
-  if (stems.length === 0) return RING_SPACING_MIN_MM;
+  const focals = stems.filter((stem) => getItemOrFallback(stem.itemId).category === "focal");
+  const measured = focals.length > 0 ? focals : stems;
+  if (measured.length === 0) return RING_SPACING_MIN_MM;
+
   const meanSquare =
-    stems.reduce((sum, stem) => {
+    measured.reduce((sum, stem) => {
       const w = getItemOrFallback(stem.itemId).realWidthMm;
       return sum + w * w;
-    }, 0) / stems.length;
+    }, 0) / measured.length;
   const spacing = (Math.sqrt(meanSquare) / 2) * RING_SPACING_FACTOR;
   return Math.min(RING_SPACING_MAX_MM, Math.max(RING_SPACING_MIN_MM, spacing));
+}
+
+/** How far the flower mass itself reaches, which is where the other bands start from. */
+function focalRadiusPx(stems: Stem[], ringSpacingPx: number): number {
+  const focals = stems.reduce(
+    (n, stem) => n + (getItemOrFallback(stem.itemId).category === "focal" ? 1 : 0),
+    0,
+  );
+  return ringSpacingPx * Math.sqrt(Math.max(0, focals - 1));
 }
 
 export function computeLayout(width: number, height: number, state: BouquetState): Layout {
@@ -243,8 +343,10 @@ export interface PlacedStem {
   stem: Stem;
   item: CatalogItem;
   variant: CatalogItem["variants"][number];
-  /** Spiral ordinal (n in the formulas). */
+  /** Spiral ordinal across the whole bouquet — what sets the golden angle. */
   n: number;
+  /** Ordinal within this stem's own category band — what sets its radius and ring. */
+  bandIndex: number;
   ring: number;
   scale: number;
   /** Golden-angle position, after jitter, in degrees. */
@@ -280,7 +382,7 @@ export interface PlacedStem {
  * length are solved from the head position the golden-angle spiral asks for.
  */
 export function placeStems(state: BouquetState, layout: Layout): PlacedStem[] {
-  const order = placementOrder(state.stems);
+  const order = placementSlots(state.stems);
 
   // The spiral is laid out at its natural spacing first, then reined in so the
   // whole mass stays inside the frame. Both corrections are single scalars
@@ -313,10 +415,10 @@ export function placeStems(state: BouquetState, layout: Layout): PlacedStem[] {
  * just closer in.
  */
 function solveLeanFit(placed: PlacedStem[], layout: Layout): number {
-  const tan = Math.tan(MAX_LEAN_DEG * DEG);
   let fit = 1;
 
   for (const stem of placed) {
+    const tan = Math.tan(CATEGORY_BAND[stem.item.category].maxLean * DEG);
     const dx = Math.abs(stem.headX - layout.tieX);
     // Split the vertical offset back into the stem's own rise and the spiral's
     // contribution, since only the latter shrinks with the fit.
@@ -363,32 +465,49 @@ function solveVerticalFit(placed: PlacedStem[], layout: Layout): number {
 function layoutPass(
   state: BouquetState,
   layout: Layout,
-  order: number[],
+  order: PlacementSlot[],
   spiralFit: number,
   riseFit: number,
 ): PlacedStem[] {
-  // The widest the spiral can reach on this pass, known in closed form: the
-  // outermost stem at its largest jitter. The dome's floor is measured against
-  // it, so the taper is relative to the mass rather than to the canvas.
-  const maxRadius =
-    layout.ringSpacingPx * spiralFit * Math.sqrt(Math.max(0, order.length - 1)) * (1 + RADIUS_JITTER);
+  const focalRadius = focalRadiusPx(state.stems, layout.ringSpacingPx);
 
-  return order.map((stemIndex, n) => {
+  // The widest any band can reach on this pass, in closed form: the outermost
+  // stem of the band that goes furthest, at its largest jitter. The dome's
+  // floor is measured against it, so the taper is relative to the mass rather
+  // than to the canvas.
+  const maxRadius =
+    order.reduce((widest, slot) => {
+      const band = CATEGORY_BAND[slot.category];
+      const reach =
+        bandStartPx(band, focalRadius, layout.ringSpacingPx) +
+        band.spacing * layout.ringSpacingPx * Math.sqrt(slot.bandIndex);
+      return Math.max(widest, reach);
+    }, 0) *
+    spiralFit *
+    (1 + RADIUS_JITTER);
+
+  return order.map(({ stemIndex, n, bandIndex, category }) => {
     const stem = state.stems[stemIndex];
     const item = getItemOrFallback(stem.itemId);
 
-    const ring = ringForIndex(n);
+    const band = CATEGORY_BAND[category];
+    // Ring, and so scale, counts within the band. Greenery in an outer band is
+    // not a shrunken flower — the 12% falloff is about depth inside a mass, and
+    // each band is its own mass.
+    const ring = ringForIndex(bandIndex);
     const scale = scaleForRing(ring);
 
-    // Golden angle, plus +/-8 degrees of seeded jitter.
+    // Golden angle on the global ordinal, so no two stems in the bouquet point
+    // the same way whatever band they are in.
     const angleDeg =
       n * GOLDEN_ANGLE_DEG + randSigned(state.seed, n, "angle") * ANGLE_JITTER_DEG;
 
-    // sqrt spiral, plus +/-6% of seeded jitter.
+    // sqrt spiral within the band, offset to where the band begins, plus +/-6%
+    // of seeded jitter.
     const radiusPx =
-      layout.ringSpacingPx *
+      (bandStartPx(band, focalRadius, layout.ringSpacingPx) +
+        band.spacing * layout.ringSpacingPx * Math.sqrt(bandIndex)) *
       spiralFit *
-      Math.sqrt(n) *
       (1 + randSigned(state.seed, n, "radius") * RADIUS_JITTER);
 
     // How far above the tie point this stem carries its head.
@@ -399,7 +518,7 @@ function layoutPass(
     // sprite made outer stems both small and steep, which compounded into
     // flowers lying on their sides. The ring scale governs size, as the brief
     // says, and nothing else.
-    const risePx = item.stemLengthMm * layout.mmToPx * riseFit;
+    const risePx = item.stemLengthMm * band.rise * layout.mmToPx * riseFit;
 
     const angleRad = angleDeg * DEG;
     const dx = Math.sin(angleRad) * radiusPx;
@@ -407,7 +526,7 @@ function layoutPass(
     const dy =
       dyRaw < 0
         ? dyRaw * DOME_SQUASH_UP
-        : dyRaw * DOME_SQUASH_DOWN * domeFloorTaper(dx, maxRadius);
+        : dyRaw * DOME_SQUASH_DOWN * band.floor * domeFloorTaper(dx, maxRadius);
 
     // The variant is settled only once the stem's side is known, because an
     // arching frond has to arc away from the bouquet rather than back into it.
@@ -434,6 +553,7 @@ function layoutPass(
       item,
       variant,
       n,
+      bandIndex,
       ring,
       scale,
       angleDeg,

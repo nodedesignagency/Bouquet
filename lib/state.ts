@@ -4,7 +4,7 @@
  */
 
 import { getItemOrFallback } from "./catalog";
-import { placementOrder, ringForIndex } from "./engine";
+import { placementSlots, ringForIndex } from "./engine";
 import { rand } from "./rng";
 import type { BouquetState, Stem } from "./types";
 
@@ -33,11 +33,17 @@ export const DEFAULT_STATE: BouquetState = {
  * share link renders identically without needing a repair pass.
  */
 export function normalizeStems(stems: Stem[]): Stem[] {
-  const order = placementOrder(stems);
   const next = stems.slice();
-  order.forEach((stemIndex, n) => {
-    next[stemIndex] = { ...next[stemIndex], index: n, ring: ringForIndex(n) };
-  });
+  for (const slot of placementSlots(stems)) {
+    // `index` is the ordinal across the bouquet, which is what sets the golden
+    // angle; `ring` counts within the stem's own category band, which is what
+    // sets its radius and scale.
+    next[slot.stemIndex] = {
+      ...next[slot.stemIndex],
+      index: slot.n,
+      ring: ringForIndex(slot.bandIndex),
+    };
+  }
   return next;
 }
 

@@ -53,11 +53,27 @@ images — it returns numbers, and the renderer draws them.
   from the head position the spiral asks for, so both statements stay true at
   once: every anchor is on the tie point, and every head is where the spiral
   wants it.
-- **Placement order is not add order.** Focals take the middle, filler sits
-  around them, greens land outside — the way a hand-tie is actually built up.
-- **Ring spacing** comes from the RMS head width, which leans toward the big
-  heads in the middle where the room is needed. For a single-flower bouquet RMS
-  and mean agree exactly.
+- **Each category is placed in its own band.** Look at a real hand-tie and the
+  three roles do different jobs: flowers pack a dense disc, filler threads
+  through the gaps between them, and greenery is not in the mass at all — it
+  radiates out and up beyond it, sparse and reaching, and it is what gives a
+  bouquet its outline. Running all three down one spiral could only ever make
+  greens "the outermost flowers", a ring further out at the same height and
+  density. So `CATEGORY_BAND` gives each one where it starts, how tightly it
+  packs, how high it carries, how far it may splay, and how much the collar's
+  floor pulls it down. A band starts at a multiple of the flower mass's own
+  radius, so greenery follows the flowers outward as more are added.
+- **The golden angle stays global.** Stem *n* sits at `n * 137.5°` across the
+  whole bouquet however many bands there are, so no two stems anywhere point the
+  same way. Only radius and ring come from the band — which is what separates
+  the greenery from the flowers without disturbing the phyllotaxis. Ring, and so
+  the 12% scale falloff, counts within the band too: greenery further out is not
+  a shrunken flower, since the falloff is about depth inside a mass and each
+  band is its own mass.
+- **Ring spacing** comes from the RMS head width of the *flowers*, which leans
+  toward the big heads in the middle where the room is needed. Measuring the
+  flowers alone also means adding greenery, which lives in its own band further
+  out, does not reflow the middle of the bouquet.
 - **Every stem is cut to the same length.** `stemLengthMm` barely varies across
   the catalog, because a florist cuts a hand-tie to length — only the spiral
   decides which heads ride higher. Taking it from the artwork instead made it

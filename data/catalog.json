@@ -433,9 +433,9 @@
     "category": "filler",
     "colorway": "white",
     "pricePerStem": 25,
-    "realWidthMm": 170,
+    "realWidthMm": 105,
     "bloomWidthMm": 8,
-    "stemLengthMm": 170,
+    "stemLengthMm": 152,
     "stemColor": "#7d9a6c",
     "headColor": "#f7f4ec",
     "accentColor": "#dcd6c6",
@@ -452,7 +452,7 @@
         ],
         "headY": 605,
         "facing": "upright",
-        "widthMm": 175
+        "widthMm": 112
       },
       {
         "src": "/assets/babysbreath-arch-left.png",
@@ -466,7 +466,7 @@
         ],
         "headY": 588,
         "facing": "arch-left",
-        "widthMm": 165
+        "widthMm": 102
       },
       {
         "src": "/assets/babysbreath-arch-right.png",
@@ -480,7 +480,7 @@
         ],
         "headY": 765,
         "facing": "arch-right",
-        "widthMm": 172
+        "widthMm": 108
       },
       {
         "src": "/assets/babysbreath-sprig.png",
@@ -494,7 +494,7 @@
         ],
         "headY": 386,
         "facing": "sprig",
-        "widthMm": 128
+        "widthMm": 76
       }
     ]
   }

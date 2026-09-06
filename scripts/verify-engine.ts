@@ -131,6 +131,43 @@ check(
   `${buried} of ${checked} heads buried`,
 );
 
+// Each category is placed in its own band, which is the whole point of having
+// three of them: flowers pack a disc, filler threads through it, greenery sits
+// outside and reaches higher. Assert the structure rather than the constants.
+{
+  let banded: BouquetState = { ...DEFAULT_STATE, seed: 4242 };
+  for (const [itemId, count] of [
+    ["rose-red", 6],
+    ["lily-white", 3],
+    ["babysbreath", 4],
+    ["eucalyptus-silver", 3],
+    ["fern-leatherleaf", 2],
+  ] as Array<[string, number]>) {
+    for (let i = 0; i < count; i += 1) banded = addStem(banded, itemId);
+  }
+  const l = computeLayout(CANVAS_WIDTH, CANVAS_HEIGHT, banded);
+  const stems = placeStems(banded, l);
+  const of = (category: string) => stems.filter((s) => s.item.category === category);
+  const radii = (category: string) => of(category).map((s) => s.radiusPx);
+  const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+
+  check(
+    "greenery sits outside the flower mass",
+    Math.min(...radii("green")) >= Math.max(...radii("focal")) * 0.85,
+    `nearest green ${Math.min(...radii("green")).toFixed(0)}px vs furthest flower ${Math.max(
+      ...radii("focal"),
+    ).toFixed(0)}px`,
+  );
+  check(
+    "greenery carries higher than the flowers",
+    mean(of("green").map((s) => s.headY)) < mean(of("focal").map((s) => s.headY)),
+  );
+  check(
+    "filler threads through the flowers rather than ringing them",
+    Math.min(...radii("filler")) < Math.max(...radii("focal")),
+  );
+}
+
 // The golden angle should be recoverable from consecutive stems, to within the
 // +/-8 degrees of jitter the brief allows (so a 16 degree window).
 const angleGaps = placed.slice(1).map((s, i) => {
