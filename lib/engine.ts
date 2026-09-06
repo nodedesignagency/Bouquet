@@ -206,6 +206,16 @@ const DOME_DROP_RINGS = 0.9;
 const DOME_LIFT_CAP = 0.4;
 
 /**
+ * How filler sits in a gap, in shares of a row step: a touch proud of the seam
+ * so its florets carry over the shoulders of the flowers either side, stacked a
+ * little higher again when there is more of it than there are gaps, and allowed
+ * to wander inside the gap so several stems do not line up.
+ */
+const FILLER_PEEK = 0.18;
+const FILLER_STACK = 0.55;
+const FILLER_WANDER = 0.22;
+
+/**
  * How far a stem may stand proud of its own row, as a share of the row step.
  * Under a half, so no stem is ever nearer the next row's line than its own.
  */
@@ -474,6 +484,45 @@ export interface StemPlan extends PlacementSlot {
    * of its row or a little back into it without leaving it.
    */
   depthWithin: number;
+  /**
+   * For filler: the gap in the flower packing it is tucked into. Absent when
+   * there are no flowers to have gaps.
+   */
+  gap?: GapAnchor;
+}
+
+/**
+ * A gap in the flower packing, named rather than measured.
+ *
+ * Gypsophila does not go on a grid of its own. Look at any of the reference
+ * bouquets and it is in the spaces BETWEEN the roses — the little triangular
+ * void where two flowers in one row meet one in the row behind, the seam
+ * between two neighbours, the ring of it around the outside edge. Placed on its
+ * own rows, filler could only ever end up behind blooms as often as between
+ * them, and what showed was a haze around the outside rather than a sparkle
+ * through the middle.
+ *
+ * So a gap is named by the seats it lies between and resolved to a position
+ * only once the flowers themselves have been laid out. That keeps the plan free
+ * of the canvas, and means filler follows the flowers exactly however the fit
+ * passes move them.
+ */
+export interface GapAnchor {
+  /**
+   * `between` — the void between a seat and its nearest neighbour in the row
+   * behind, which is the most open space in the packing.
+   * `row` — the seam between two neighbours in the same row.
+   * `edge` — just outside the end of a row.
+   */
+  kind: "between" | "row" | "edge";
+  /** The row the gap is measured from. */
+  level: number;
+  /** The seat in that row. For `row`, the gap is between this seat and the next. */
+  slot: number;
+  /** Which end, for an `edge` gap. Unused otherwise. */
+  side: number;
+  /** How many stems are already in this gap, when there are more stems than gaps. */
+  repeat: number;
 }
 
 /**
@@ -510,6 +559,32 @@ export function planStems(state: Pick<BouquetState, "seed" | "stems">): StemPlan
   for (const category of ["focal", "filler", "green"] as const) {
     const members = spiral.filter((entry) => entry.slot.category === category);
     if (members.length === 0) continue;
+
+    // Filler is not laid out at all — it is tucked into the gaps the flowers
+    // have already left, which is the only place gypsophila is ever seen.
+    if (category === "filler") {
+      const gaps = gapsIn(plan);
+      if (gaps.length > 0) {
+        const focalLevels = plan.reduce((deepest, e) => Math.max(deepest, e.levels), 1);
+        members.forEach((entry, i) => {
+          const gap = { ...gaps[i % gaps.length], repeat: Math.floor(i / gaps.length) };
+          plan.push({
+            ...entry.slot,
+            angleDeg: entry.angleDeg,
+            // Filler takes the row of the flower whose gap it sits in, so it is
+            // painted, sized and shaded as something at that depth.
+            level: gap.level,
+            levels: focalLevels,
+            slot: i,
+            slotCount: members.length,
+            depthWithin: entry.planZ / Math.max(1, ...members.map((m) => m.planRadius)),
+            gap,
+          });
+        });
+        continue;
+      }
+      // No flowers, so no gaps: fall through and give the filler rows of its own.
+    }
 
     const config = CATEGORY_LEVELS[category];
     const levels = levelCount(members.length);
@@ -567,6 +642,73 @@ export function planStems(state: Pick<BouquetState, "seed" | "stems">): StemPlan
   }
 
   return plan.sort((a, b) => a.n - b.n);
+}
+
+/**
+ * Every gap in the flower packing, most open first.
+ *
+ * The order is what decides where a single stem of gypsophila goes when there
+ * is only one of it: into the biggest void in the front of the bouquet. Then
+ * the seams between neighbours, then the outside edge, working front to back
+ * and out from the middle of each row — which is roughly the order a florist
+ * fills them in.
+ */
+function gapsIn(focals: StemPlan[]): GapAnchor[] {
+  const rows: number[] = [];
+  for (const entry of focals) {
+    if (entry.category !== "focal") continue;
+    rows[entry.level] = Math.max(rows[entry.level] ?? 0, entry.slotCount);
+  }
+  if (rows.length === 0) return [];
+
+  // Each kind of gap, listed per row: middle of the row first, working outward.
+  const between = rows.map((_, level) =>
+    level + 1 < rows.length
+      ? centreOut(rows[level] ?? 0).map(
+          (slot): GapAnchor => ({ kind: "between", level, slot, side: 0, repeat: 0 }),
+        )
+      : [],
+  );
+  const seams = rows.map((count, level) =>
+    centreOut((count ?? 0) - 1).map(
+      (slot): GapAnchor => ({ kind: "row", level, slot, side: 0, repeat: 0 }),
+    ),
+  );
+  // Left and right alternate row by row, so a bouquet with only a couple of
+  // stems of filler and no room between its flowers does not put all of it
+  // down one side.
+  const edges = rows.map((count, level) => {
+    if ((count ?? 0) === 0) return [];
+    const first = level % 2 === 0 ? -1 : 1;
+    return [
+      { kind: "edge" as const, level, slot: first < 0 ? 0 : count - 1, side: first, repeat: 0 },
+      { kind: "edge" as const, level, slot: first < 0 ? count - 1 : 0, side: -first, repeat: 0 },
+    ];
+  });
+
+  // Taken a row at a time rather than a row at a stretch, so three stems of
+  // gypsophila land at three different depths instead of filling the front row
+  // and leaving the rest of the bouquet bare.
+  return [...roundRobin(between), ...roundRobin(seams), ...roundRobin(edges)];
+}
+
+/** Flattens per-row lists by taking one from each row in turn, front row first. */
+function roundRobin<T>(lists: T[][]): T[] {
+  const out: T[] = [];
+  const longest = lists.reduce((most, list) => Math.max(most, list.length), 0);
+  for (let i = 0; i < longest; i += 1) {
+    for (const list of lists) if (i < list.length) out.push(list[i]);
+  }
+  return out;
+}
+
+/** 0..count-1, middle first and working outward, so a few stems spread instead of clumping left. */
+function centreOut(count: number): number[] {
+  if (count <= 0) return [];
+  const middle = (count - 1) / 2;
+  return Array.from({ length: count }, (_, i) => i).sort(
+    (a, b) => sortKey(Math.abs(a - middle)) - sortKey(Math.abs(b - middle)) || a - b,
+  );
 }
 
 /**
@@ -862,6 +1004,8 @@ function buildRows(state: BouquetState, layout: Layout, plan: StemPlan[]): Map<s
   const rows = new Map<string, Row>();
 
   for (const entry of plan) {
+    // Filler tucked into a gap is positioned from the flowers, not from a row.
+    if (entry.gap) continue;
     const stem = state.stems[entry.stemIndex];
     const item = getItemOrFallback(stem.itemId);
     const scale = scaleForLevel(entry.level);
@@ -965,6 +1109,33 @@ function rowHalfPx(row: Row, massHalf: number, ringSpacingPx: number): number {
   return Math.min(asked, ceiling);
 }
 
+/**
+ * How far the dome carries a stem's head above or below its own stem length.
+ *
+ * Two things added together. Every row back stands a fixed distance higher than
+ * the one in front — a little less so out at the sides, where the rows crowd
+ * together the way a dome does seen head-on. That is the whole of the depth
+ * read, and it does not care which role the stem plays: a fern in the third row
+ * stands as far back as a rose in the third row.
+ *
+ * On top of that the FRONT of the arrangement dips toward the mouth of the
+ * wrap, most in the middle and not at all at the sides, so the front row
+ * settles into the collar instead of hovering over it or diving behind it.
+ */
+function domeOffsetY(
+  entry: StemPlan,
+  config: CategoryLevels,
+  u: number,
+  dropPx: number,
+  stepPx: number,
+): number {
+  const t = entry.levels > 1 ? entry.level / (entry.levels - 1) : 0.5;
+  return (
+    dropPx * (1 - t) * (1 - u * u) * config.floor -
+    stepPx * (entry.level - ROW_WOBBLE * entry.depthWithin) * (1 - ROW_STEP_TAPER * u * u)
+  );
+}
+
 function layoutPass(
   state: BouquetState,
   layout: Layout,
@@ -986,7 +1157,7 @@ function layoutPass(
   // every flower in the bouquet would shift as a result. Greenery reaching past
   // the flowers simply sits at the edge of the dome, where the curve has
   // levelled off anyway.
-  const domeHalf = Math.max(massHalf, layout.ringSpacingPx);
+  const domeHalf = Math.max(massHalf, layout.ringSpacingPx) * spreadFit;
 
   // How far apart the rows stand, capped so a deep bouquet of big flowers does
   // not walk off the top of the frame.
@@ -998,11 +1169,16 @@ function layoutPass(
       : ROW_STEP_RINGS * layout.ringSpacingPx;
   const dropPx = DOME_DROP_RINGS * layout.ringSpacingPx;
 
-  // Where every stem stands across the canvas, worked out first and on its own,
-  // because how far the flowers actually reach is what decides whether a frond
-  // is standing outside them or across them.
+  const riseOf = (entry: StemPlan) =>
+    getItemOrFallback(state.stems[entry.stemIndex].itemId).stemLengthMm *
+    CATEGORY_LEVELS[entry.category].rise *
+    layout.mmToPx *
+    riseFit;
+
+  // Everything that stands in a row of its own is placed first, because the
+  // filler is placed into the spaces they leave.
   const bondPitch = categoryPitchPx(rows);
-  const across = new Map<StemPlan, number>();
+  const offset = new Map<StemPlan, { x: number; y: number }>();
   for (const [, row] of rows) {
     const config = CATEGORY_LEVELS[row.seats[0].plan.category];
     const half = rowHalfPx(row, massHalf, layout.ringSpacingPx) * spreadFit;
@@ -1019,74 +1195,55 @@ function layoutPass(
       // The +/-6% of seeded jitter the brief asks for, so a row is regular
       // without being a picket fence.
       const jitter = 1 + randSigned(state.seed, seat.plan.n, "radius") * RADIUS_JITTER;
-      across.set(seat.plan, openCentre(row.even[i], config.centreClear, seat.plan.level) * half * jitter + bond);
+      const x =
+        openCentre(row.even[i], config.centreClear, seat.plan.level) * half * jitter + bond;
+      const u = domeHalf > 0 ? Math.min(1, Math.abs(x) / domeHalf) : 0;
+      offset.set(seat.plan, {
+        x,
+        y: -riseOf(seat.plan) + domeOffsetY(seat.plan, config, u, dropPx, stepPx),
+      });
     });
   }
 
+  // Now the filler, into the gaps.
+  placeInGaps(state, plan, offset, stepPx);
+
   const focalReach = plan.reduce(
     (reach, entry) =>
-      entry.category === "focal" ? Math.max(reach, Math.abs(across.get(entry) ?? 0)) : reach,
+      entry.category === "focal" ? Math.max(reach, Math.abs(offset.get(entry)?.x ?? 0)) : reach,
     0,
   );
 
   return plan.map((entry) => {
-    const { stemIndex, n, bandIndex, category, angleDeg, level, levels, slot, slotCount } = entry;
+    const { stemIndex, n, bandIndex, level, levels, slot, slotCount } = entry;
     const stem = state.stems[stemIndex];
     const item = getItemOrFallback(stem.itemId);
-    const config = CATEGORY_LEVELS[category];
 
     // Size falls off toward the back, which is what perspective does. The 12%
     // counts rows rather than spiral rings, so a whole row is one size and the
     // courses read as courses.
     const scale = scaleForLevel(level);
-    const dx = across.get(entry) ?? 0;
-
-    // How far above the tie point this stem carries its head.
-    //
-    // Deliberately NOT scaled by the row. In a spiral hand-tie every stem is
-    // the same length from the bind, so a back-row flower sits where it does
-    // because of the dome, not because it is shorter.
-    const risePx = item.stemLengthMm * config.rise * layout.mmToPx * riseFit;
-
-    // The dome, which is two separate things added together.
-    //
-    // Every row back stands a fixed distance higher than the one in front — a
-    // little less so out at the sides, where the rows crowd together the way a
-    // dome does seen head-on. That is the whole of the depth read, and it does
-    // not care which category the stem belongs to: a fern in the third row
-    // stands as far back as a rose in the third row.
-    //
-    // On top of that the FRONT of the arrangement dips toward the mouth of the
-    // wrap, most in the middle and not at all at the sides, so the front row
-    // settles into the collar instead of hovering over it or diving behind it.
-    const tRow = levels > 1 ? level / (levels - 1) : 0.5;
-    const u = domeHalf > 0 ? Math.min(1, Math.abs(dx) / (domeHalf * spreadFit)) : 0;
-    //
-    // And within its row, a stem sits a little proud or a little back according
-    // to where the spiral put it, so the rows are courses rather than shelves
-    // and the two sides of the bouquet are not mirror images of each other.
-    // Well under half a row step, so it never reads as belonging to another row.
-    const dy =
-      dropPx * (1 - tRow) * (1 - u * u) * config.floor -
-      stepPx * (level - ROW_WOBBLE * entry.depthWithin) * (1 - ROW_STEP_TAPER * u * u);
+    const { x: offsetX, y: offsetY } = offset.get(entry) ?? { x: 0, y: -riseOf(entry) };
 
     // The variant is settled only once the stem's side is known, because an
     // arching frond has to arc away from the bouquet rather than back into it.
-    const variant = poseFor(item, stem.variant, dx);
+    const variant = poseFor(item, stem.variant, offsetX);
     // A pose may be a different real size from the item — a bud is not as wide
     // as the flower it becomes, and an arching stem spans more than an upright.
     const widthMm = variant.widthMm ?? item.realWidthMm;
-
-    const offsetX = dx;
-    const offsetY = -risePx + dy;
 
     const headX = layout.tieX + offsetX;
     const headY = layout.tieY + offsetY;
 
     // Solve the rotation that carries the head from straight-up to where the
-    // row wants it. atan2(x, -y) because 0 degrees points up the screen.
+    // arrangement wants it. atan2(x, -y) because 0 degrees points up the screen.
     const rotationDeg = Math.atan2(offsetX, -offsetY) / DEG;
     const axisLengthPx = Math.hypot(offsetX, offsetY);
+    // A stem tucked into a gap has no rise of its own to speak of — it went
+    // exactly where the flowers left room — so what it reports is where it
+    // ended up. The fit passes read this, and they should scale what actually
+    // happened rather than what was asked for.
+    const risePx = entry.gap ? -offsetY : riseOf(entry);
 
     return {
       key: `${stemIndex}:${stem.itemId}:${stem.variant}`,
@@ -1101,8 +1258,8 @@ function layoutPass(
       slot,
       slotCount,
       scale,
-      angleDeg,
-      radiusPx: Math.hypot(offsetX, dy),
+      angleDeg: entry.angleDeg,
+      radiusPx: Math.hypot(offsetX, offsetY + riseOf(entry)),
       headX,
       headY,
       rotationDeg,
@@ -1113,9 +1270,90 @@ function layoutPass(
       // Measured against how far the flowers ACTUALLY reach, not the nominal
       // width of their rows: whether a frond stands outside the flowers is the
       // whole question, and jitter and the brick bond both move the answer.
-      layer: layerFor(item, level, focalReach > 0 ? Math.abs(dx) / focalReach : 1),
+      layer: layerFor(item, level, focalReach > 0 ? Math.abs(offsetX) / focalReach : 1),
     };
   });
+}
+
+/**
+ * Tuck each stem of filler into the gap the plan named for it.
+ *
+ * A gap is only a pair of seats until the flowers have been laid out, so this
+ * runs after them and reads their finished positions. Everything follows from
+ * that: if a fit pass narrowed the bouquet, the gaps narrowed with it and the
+ * gypsophila is still in them.
+ */
+function placeInGaps(
+  state: BouquetState,
+  plan: StemPlan[],
+  offset: Map<StemPlan, { x: number; y: number }>,
+  stepPx: number,
+) {
+  const seatsByLevel = new Map<number, Array<{ entry: StemPlan; x: number; y: number }>>();
+  for (const entry of plan) {
+    if (entry.category !== "focal") continue;
+    const at = offset.get(entry);
+    if (!at) continue;
+    const bucket = seatsByLevel.get(entry.level);
+    if (bucket) bucket.push({ entry, ...at });
+    else seatsByLevel.set(entry.level, [{ entry, ...at }]);
+  }
+  for (const [, seats] of seatsByLevel) seats.sort((a, b) => a.x - b.x);
+
+  for (const entry of plan) {
+    const gap = entry.gap;
+    if (!gap) continue;
+    const seats = seatsByLevel.get(gap.level);
+    if (!seats || seats.length === 0) continue;
+
+    const seat = seats[Math.min(gap.slot, seats.length - 1)];
+    // How wide the local space is: how far it is to the nearest flower beside
+    // this one. That sets how far outside a row an edge gap sits and how far a
+    // stem may wander inside any gap, both measured against the actual packing
+    // rather than a constant.
+    const room =
+      seats.length > 1
+        ? Math.min(
+            ...seats.filter((other) => other !== seat).map((other) => Math.abs(other.x - seat.x)),
+          ) / 2
+        : stepPx * 0.6;
+    let x = seat.x;
+    let y = seat.y;
+
+    if (gap.kind === "row") {
+      const next = seats[Math.min(gap.slot + 1, seats.length - 1)];
+      x = (seat.x + next.x) / 2;
+      y = (seat.y + next.y) / 2;
+    } else if (gap.kind === "between") {
+      const behind = seatsByLevel.get(gap.level + 1);
+      if (behind && behind.length > 0) {
+        // Its nearest neighbour in the row behind, which with the brick bond is
+        // the flower sitting up between this one and the next: the third corner
+        // of the little triangle the filler goes into.
+        const near = behind.reduce((best, candidate) =>
+          Math.abs(candidate.x - seat.x) < Math.abs(best.x - seat.x) ? candidate : best,
+        );
+        x = (seat.x + near.x) / 2;
+        y = (seat.y + near.y) / 2;
+      } else {
+        y -= stepPx * 0.5;
+      }
+    } else {
+      x = seat.x + gap.side * room;
+    }
+
+    // Sit a touch proud of the gap, so the sprig's florets carry over the
+    // shoulders of the flowers either side rather than only through the seam.
+    // Not at an edge, though: there is nothing either side to carry over, and
+    // lifting it there just floats a puff of gypsophila off the bouquet.
+    const peek = gap.kind === "edge" ? 0 : FILLER_PEEK;
+    y -= stepPx * (peek + gap.repeat * FILLER_STACK);
+    // And wander a little within the gap, so several stems of it do not line up.
+    x += randSigned(state.seed, entry.n, "gap-x") * room * FILLER_WANDER;
+    y += randSigned(state.seed, entry.n, "gap-y") * stepPx * FILLER_WANDER;
+
+    offset.set(entry, { x, y });
+  }
 }
 
 /**

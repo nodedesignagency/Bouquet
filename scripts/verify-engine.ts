@@ -14,6 +14,7 @@ import {
   computeLayout,
   levelCount,
   placeStems,
+  planStems,
   scaleForLevel,
   sortWithinLayer,
   spriteWidthPx,
@@ -374,6 +375,65 @@ check(
   check(
     "filler threads through the flowers rather than ringing them",
     nearest("filler") < furthest("focal"),
+  );
+}
+
+{
+  // "Baby's breath should be in between gaps of flowers." Filler is not laid
+  // out at all — it is tucked into the spaces the flowers left — so the thing
+  // to assert is that it is genuinely in one: nearer to two flowers than those
+  // two are to each other is what "between" means, and no stem of it is off on
+  // its own away from the bouquet.
+  let stranded = "";
+  let notBetween = "";
+  let between = 0;
+  for (const { name, state } of EVERY) {
+    const stems = lay(state).placed;
+    const focals = stems.filter((s) => s.item.category === "focal");
+    const plan = planStems(state);
+    if (focals.length < 2) continue;
+    // How far apart neighbouring flowers stand — the scale of the packing, and
+    // so of the gaps in it. Measured rather than assumed, because a bouquet of
+    // sunflowers has gaps three times the size of a bouquet of carnations.
+    const apartest = Math.max(
+      ...focals.map((f) =>
+        Math.min(
+          ...focals
+            .filter((o) => o !== f)
+            .map((o) => Math.hypot(o.headX - f.headX, o.headY - f.headY)),
+        ),
+      ),
+    );
+    for (const filler of stems.filter((s) => s.item.category === "filler")) {
+      const gap = plan.find((e) => e.stemIndex === filler.stemIndex)?.gap;
+      if (!gap) continue;
+      const near = focals
+        .map((f) => ({ f, d: Math.hypot(f.headX - filler.headX, f.headY - filler.headY) }))
+        .sort((x, y) => x.d - y.d);
+      // Never adrift: a stem of gypsophila is never further from the flowers
+      // than the flowers are from each other, whichever gap it went into.
+      if (near[0].d > apartest) {
+        stranded = `${name}: ${gap.kind} gap is ${near[0].d.toFixed(
+          0,
+        )}px from the nearest bloom, and the flowers stand at most ${apartest.toFixed(0)}px apart`;
+      }
+      if (gap.kind === "edge") continue;
+      between += 1;
+      // And in a seam or a triangle, actually between the two: closer to each
+      // of them than they are to each other.
+      const apart = Math.hypot(near[0].f.headX - near[1].f.headX, near[0].f.headY - near[1].f.headY);
+      if (near[0].d >= apart || near[1].d >= apart) {
+        notBetween = `${name}: ${gap.kind} gap sits ${near[0].d.toFixed(0)}/${near[1].d.toFixed(
+          0,
+        )}px from two blooms that are ${apart.toFixed(0)}px apart`;
+      }
+    }
+  }
+  check("no stem of filler is left adrift of the flowers", stranded === "", stranded);
+  check(
+    "filler in a seam or a triangle really is between the two flowers",
+    notBetween === "" && between > 0,
+    notBetween || "no filler landed in a seam or a triangle",
   );
 }
 

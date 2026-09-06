@@ -122,9 +122,18 @@ back rows, and how much of the rim's dip it takes.
 
 - **Flowers** are the face: they fill their rows from the middle outward,
   brick-bonded so nothing hides behind the bloom in front of it.
-- **Filler** goes in the gaps, not behind the blooms — half a spacing off the
-  flowers' rows, a touch wider, and drawn behind them, so what shows of a stem
-  of gypsophila is exactly the part in a gap.
+- **Filler is not laid out at all.** It is tucked into the gaps the flowers have
+  already left, which is the only place gypsophila is ever seen: the triangular
+  void where two flowers in a row meet one in the row behind, the seam between
+  two neighbours, the ring of it around the outside edge. A gap is *named* by
+  the seats it lies between and resolved to a position only once the flowers
+  themselves are placed, so the plan stays free of the canvas and the filler
+  follows the flowers exactly however the fit passes move them. Gaps are taken
+  most-open first and a row at a time rather than a row at a stretch, so three
+  stems of gypsophila land at three different depths instead of filling the
+  front row and leaving the rest bare. Given rows of its own, filler could only
+  ever end up behind blooms as often as between them, and what showed was a haze
+  around the outside rather than a sparkle through the middle.
 - **Greenery** is the background: wider than the flowers, weighted to the back
   rows, and held out of the middle. Past a ceiling it overlaps *itself* rather
   than spreading further — twelve stems of eucalyptus given all the room they
