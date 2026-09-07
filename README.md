@@ -181,6 +181,21 @@ what is behind.
   rose whatever the window is. Measured over the **flowers** alone, so a stem of
   eucalyptus cannot change the scale of the whole bouquet; foliage running off
   the edge of the frame is what these photographs look like anyway.
+- **And then out again to fill it.** The window is pulled back far enough for
+  the biggest head the bouquet could possibly have at its widest point, which is
+  a worst case the composition rarely reaches — so a bouquet ended up sitting in
+  the middle of the canvas with a quarter of the frame empty around it and a
+  wrap drawn to match. A final uniform zoom enlarges positions and head sizes
+  together until something is about to leave the frame. Uniform is the point: it
+  is the one operation that leaves every overlap the composition chose exactly
+  as it chose it. It is the camera moving, not the bouquet. Measured over the
+  flowers and filler only, so a stem of eucalyptus cannot rescale the bouquet.
+- **How far a sprite reaches above its head is not half its width.** The artwork
+  is framed per flower: a sunflower seen head-on carries its head a third of the
+  way down its sprite, and the same sunflower at three quarters carries it nearly
+  half way — two thirds of the sprite's width standing above the head rather than
+  a third. Both the vertical fit and the fill zoom measure the real reach, or
+  enlarging a bouquet to fill the frame cuts the tops off exactly those flowers.
 - **The composition is born inside the frame.** Each role's reach and the row
   step are capped to what the canvas will take, so the fit passes are a backstop
   rather than a step. Composing wider and letting a fit squeeze the result is not

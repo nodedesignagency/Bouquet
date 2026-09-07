@@ -84,9 +84,9 @@ const OVERLAP_MIN = 0.06;
 const OVERLAP_BEST = 0.2;
 /** How far a candidate may stray from the stem's own preference. */
 const OVERLAP_SLACK = 0.09;
-const OVERLAP_MAX = 0.38;
+const OVERLAP_MAX = 0.32;
 /** Past this, a head is being swallowed rather than overlapped. */
-const OVERLAP_RUIN = 0.4;
+const OVERLAP_RUIN = 0.34;
 
 /** How many near neighbours read as a cluster rather than a stray or a crowd. */
 const CLUSTER_NEAR = 2.3;

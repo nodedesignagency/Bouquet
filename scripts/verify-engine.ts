@@ -285,12 +285,25 @@ check(
 }
 
 {
+  // Stated as a comparison WITHIN a bouquet: the whole arrangement carries a
+  // uniform zoom to fill the frame, so a stem's absolute scale says nothing on
+  // its own — only how it compares with the stem beside it.
   let broken = "";
   for (const { name, state } of EVERY) {
-    for (const stem of lay(state).placed) {
-      const nominal =
-        scaleForLevel(stem.level, stem.levels) * (stem.isAnchor ? 1.06 : 1) * 1.04 + 1e-9;
-      if (stem.scale > nominal) broken = `${name} ${stem.item.id} at ${stem.scale.toFixed(3)}`;
+    const stems = lay(state).placed;
+    for (const a of stems) {
+      for (const b of stems) {
+        if (a.item.id !== b.item.id || a.variant.src !== b.variant.src) continue;
+        if (a.level <= b.level) continue;
+        // Filler is sized by the gap it was broken to fit, not by its row.
+        if (a.item.category === "filler") continue;
+        // Same flower, same pose, further back: it cannot be the bigger one.
+        // A few percent of slack for the per-stem size variation and for an
+        // anchor, both of which are meant to break up a rank of identical heads.
+        if (a.widthPx > b.widthPx * 1.12) {
+          broken = `${name}: ${a.item.id} in row ${a.level} is bigger than the one in row ${b.level}`;
+        }
+      }
     }
   }
   check("a stem further back is drawn smaller", broken === "", broken);
@@ -793,9 +806,16 @@ check(
     const now = lay(forward).placed.find((s) => s.stemIndex === back.stemIndex);
     if (!now) continue;
     moved += 1;
+    // "Closer" is stated on the row's own size, not on the rendered width: the
+    // whole arrangement carries a uniform zoom to fill the frame, and moving one
+    // stem re-composes the bouquet and can move that zoom either way.
     if (now.level !== back.level - 1) broken = `${name}: row ${back.level} -> ${now.level}`;
     else if (now.headY <= back.headY) broken = `${name}: came forward without coming down`;
-    else if (now.scale <= back.scale) broken = `${name}: came forward without coming closer`;
+    else if (
+      scaleForLevel(now.level, now.levels) <= scaleForLevel(back.level, back.levels)
+    ) {
+      broken = `${name}: came forward without coming closer`;
+    }
   }
   check("bringing a stem forward moves it forward, down and closer", broken === "" && moved > 0, broken);
 
@@ -832,11 +852,21 @@ check(
   spriteWidthPx(180, 900, 1) === 405 && spriteWidthPx(75, 900, 1) === 168.75,
 );
 {
-  const sunflower = lay(addStem(DEFAULT_STATE, "sunflower")).placed[0];
-  const rose = lay(addStem(DEFAULT_STATE, "rose-red")).placed[0];
+  // In the SAME bouquet, since the window and the fill zoom are properties of a
+  // bouquet, not of a flower. Compared on the open poses, because a bud is a
+  // different real size from the flower it becomes.
+  const both = lay(addStem(addStem(DEFAULT_STATE, "sunflower"), "rose-red")).placed;
+  const sunflower = both.find((s) => s.item.id === "sunflower")!;
+  const rose = both.find((s) => s.item.id === "rose-red")!;
+  const real = (s: (typeof both)[number]) => s.variant.widthMm ?? s.item.realWidthMm;
   check(
     "a 180mm sunflower renders 2.4x a 75mm rose",
-    Math.abs(sunflower.widthPx / rose.widthPx - 180 / 75) < 1e-9,
+    Math.abs(
+      sunflower.widthPx / rose.widthPx - (real(sunflower) * sunflower.scale) / (real(rose) * rose.scale),
+    ) < 1e-9 && Math.abs(real(sunflower) / real(rose) - 180 / 75) < 1e-9,
+    `${sunflower.widthPx.toFixed(1)}px vs ${rose.widthPx.toFixed(1)}px at scales ${sunflower.scale.toFixed(
+      3,
+    )} / ${rose.scale.toFixed(3)}`,
   );
 }
 

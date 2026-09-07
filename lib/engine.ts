@@ -68,6 +68,10 @@ const RING_SPACING_MAX_MM = 90;
  */
 const FIT_HALF_WIDTH = 0.5;
 const REACH_SAFETY = 0.97;
+/** How far the arrangement may be enlarged to fill the frame. */
+const ZOOM_MAX = 1.8;
+/** How much of a sprite's reach above its head may run off the top of the frame. */
+const TOP_OVERHANG = 0.12;
 const FIT_TOP_MARGIN = 0.03;
 const MIN_RISE_FIT = 0.45;
 
@@ -1010,15 +1014,77 @@ export function placeStems(state: BouquetState, layout: Layout): PlacedStem[] {
   // flower went where.
   const composed = composeBouquet(state, layout, plan);
 
-  const natural = layoutPass(state, layout, plan, composed, 1, 1);
+  const natural = layoutPass(state, layout, plan, composed, 1, 1, 1);
   const spreadFit = Math.min(
     solveHorizontalFit(natural, layout),
     solveLeanFit(natural, layout),
   );
-  const widened = spreadFit === 1 ? natural : layoutPass(state, layout, plan, composed, spreadFit, 1);
+  const widened =
+    spreadFit === 1 ? natural : layoutPass(state, layout, plan, composed, spreadFit, 1, 1);
   const riseFit = solveVerticalFit(widened, layout);
-  if (riseFit === 1) return widened;
-  return layoutPass(state, layout, plan, composed, spreadFit, riseFit);
+  const fitted =
+    riseFit === 1 ? widened : layoutPass(state, layout, plan, composed, spreadFit, riseFit, 1);
+
+  // And then out again to fill the frame.
+  //
+  // The window is pulled back far enough for the biggest head the bouquet could
+  // possibly have at its widest point — which is a worst case, and one the
+  // composition rarely reaches, so a bouquet ends up sitting in the middle of
+  // the canvas with a quarter of the frame empty around it and a wrap drawn to
+  // match. This is a UNIFORM zoom of positions and head sizes together, which
+  // is the one operation that leaves every overlap the composition chose
+  // exactly as it chose it: it is the camera moving, not the bouquet.
+  const zoom = solveFillZoom(fitted, layout);
+  if (zoom === 1) return fitted;
+  return layoutPass(state, layout, plan, composed, spreadFit, riseFit, zoom);
+}
+
+/**
+ * How far the sprite reaches ABOVE the head it carries, in pixels.
+ *
+ * Not half its width. The artwork is framed per flower, so where a bloom sits
+ * in its own picture varies enormously — a sunflower seen head-on has its head a
+ * third of the way down the sprite, and the same sunflower seen at three
+ * quarters has it nearly half way, which is two thirds of the sprite's width
+ * standing above the head instead of a third. Sized on width, a bouquet
+ * enlarged to fill the frame cut the tops off exactly those flowers.
+ */
+function spriteTopPx(stem: PlacedStem): number {
+  const [imageWidth] = stem.variant.size;
+  if (imageWidth <= 0) return stem.widthPx / 2;
+  return (stem.widthPx * stem.variant.headY) / imageWidth;
+}
+
+/**
+ * How much the whole arrangement can be enlarged before something leaves the
+ * frame.
+ *
+ * Every constraint the fit passes enforce is linear in the zoom, because the
+ * zoom moves heads and grows them by the same factor — so the largest one that
+ * still satisfies all of them solves directly. Lean does not appear: a stem's
+ * angle from the bind is unchanged by moving the camera.
+ */
+function solveFillZoom(placed: PlacedStem[], layout: Layout): number {
+  let fill = ZOOM_MAX;
+  for (const stem of placed) {
+    // Measured over the flowers and the filler, not the foliage. The zoom sets
+    // the scale of the whole bouquet, so anything that decides it moves every
+    // flower — and a stem of eucalyptus must not. Foliage running off the edge
+    // of the frame is what these photographs look like anyway, and its own
+    // reach is already tied to the flowers', so it grows with them.
+    if (stem.item.category === "green") continue;
+    const margin = FIT_SPRITE_MARGIN[stem.item.category];
+    const dx = Math.abs(stem.headX - layout.tieX);
+    const wide = dx + stem.widthPx * margin;
+    if (wide > 1e-6) fill = Math.min(fill, (layout.width * FIT_HALF_WIDTH) / wide);
+
+    const above = layout.tieY - stem.headY;
+    const tall = above + spriteTopPx(stem) * (1 - TOP_OVERHANG);
+    if (tall > 1e-6) {
+      fill = Math.min(fill, (layout.tieY - layout.height * FIT_TOP_MARGIN) / tall);
+    }
+  }
+  return Math.max(1, Math.min(ZOOM_MAX, fill));
 }
 
 /**
@@ -1079,7 +1145,7 @@ function solveVerticalFit(placed: PlacedStem[], layout: Layout): number {
   for (const stem of placed) {
     const above = layout.tieY - stem.headY;
     if (above < 1e-6) continue;
-    const allowed = layout.tieY - limit - stem.widthPx * FIT_SPRITE_MARGIN[stem.item.category];
+    const allowed = layout.tieY - limit - spriteTopPx(stem) * (1 - TOP_OVERHANG);
     fit = Math.min(fit, Math.max(0, allowed) / above);
   }
   // Never squash the bouquet to nothing. If it is still too tall at this point
@@ -1295,6 +1361,7 @@ function layoutPass(
   composed: Composition,
   spreadFit: number,
   riseFit: number,
+  zoom: number,
 ): PlacedStem[] {
   const { frame, spots, scaleOf } = composed;
 
@@ -1307,16 +1374,24 @@ function layoutPass(
     // in for height pushes its own front row down into the mouth of the wrap,
     // which is the one thing the dome's shape exists to prevent.
     offset.set(entry, {
-      x: spot.x * spreadFit,
-      y: Math.min(spot.floor, spot.floor + (spot.y - spot.floor) * riseFit),
+      x: spot.x * spreadFit * zoom,
+      y: Math.min(spot.floor, spot.floor + (spot.y - spot.floor) * riseFit) * zoom,
     });
   }
 
   // Now the filler, into the gaps the flowers left.
   const gapFit = new Map<StemPlan, number>();
   const naturalWidth = (entry: StemPlan) =>
-    sizePx(headWidthMm(state.stems[entry.stemIndex]), layout, scaleOf.get(entry) ?? 1);
-  placeInGaps(state, plan, offset, gapFit, frame.rowStep * riseFit, naturalWidth, naturalWidth);
+    sizePx(headWidthMm(state.stems[entry.stemIndex]), layout, (scaleOf.get(entry) ?? 1) * zoom);
+  placeInGaps(
+    state,
+    plan,
+    offset,
+    gapFit,
+    frame.rowStep * riseFit * zoom,
+    naturalWidth,
+    naturalWidth,
+  );
 
   // How far the flowers actually reach, which is what "outside the flowers"
   // means. Floored by the widest bloom's own half-width: a bouquet with one
@@ -1327,7 +1402,7 @@ function layoutPass(
   const focalReach = plan.reduce((reach, entry) => {
     if (entry.category !== "focal") return reach;
     const stem = state.stems[entry.stemIndex];
-    const half = sizePx(headWidthMm(stem), layout, scaleOf.get(entry) ?? 1) / 2;
+    const half = sizePx(headWidthMm(stem), layout, (scaleOf.get(entry) ?? 1) * zoom) / 2;
     return Math.max(reach, Math.abs(offset.get(entry)?.x ?? 0), half);
   }, 0);
 
@@ -1336,8 +1411,9 @@ function layoutPass(
     const stem = state.stems[stemIndex];
     const item = getItemOrFallback(stem.itemId);
 
-    const scale = (scaleOf.get(entry) ?? 1) * (gapFit.get(entry) ?? 1);
-    const risePx = item.stemLengthMm * CATEGORY_LEVELS[entry.category].rise * layout.mmToPx * riseFit;
+    const scale = (scaleOf.get(entry) ?? 1) * (gapFit.get(entry) ?? 1) * zoom;
+    const risePx =
+      item.stemLengthMm * CATEGORY_LEVELS[entry.category].rise * layout.mmToPx * riseFit * zoom;
     const { x: offsetX, y: offsetY } = offset.get(entry) ?? { x: 0, y: -risePx };
     const layer = layerFor(item, level, focalReach > 0 ? Math.abs(offsetX) / focalReach : 1);
 
