@@ -640,14 +640,15 @@ export function planStems(state: Pick<BouquetState, "seed" | "stems">): StemPlan
     const capacities = levelCapacities(members.length, levels, config.backBias);
     const maxPlanRadius = Math.max(1, ...members.map((e) => e.planRadius));
 
-    // Nearest the viewer first: smallest heads face the front, biggest anchor
-    // the back, and the spiral shuffles the ones that are much of a muchness.
+    // Biggest first, with the spiral shuffling the ones that are much of a
+    // muchness — because the rows are handed out from the middle of the bouquet
+    // outward, and the biggest heads take the middle.
     const widths = members.map((entry) => headWidthMm(state.stems[entry.slot.stemIndex]));
     const meanWidth = Math.max(1, widths.reduce((sum, w) => sum + w, 0) / widths.length);
     const ranked = members
       .map((entry, i) => ({
         entry,
-        front: sortKey(-widths[i] / meanWidth + SPIRAL_DEPTH * (entry.planZ / maxPlanRadius)),
+        front: sortKey(widths[i] / meanWidth + SPIRAL_DEPTH * (entry.planZ / maxPlanRadius)),
       }))
       .sort((a, b) => b.front - a.front || a.entry.slot.bandIndex - b.entry.slot.bandIndex);
 
@@ -683,14 +684,44 @@ export function planStems(state: Pick<BouquetState, "seed" | "stems">): StemPlan
       { length: levels },
       () => [],
     );
+    // The rows are filled from the heart of the bouquet outward, and the
+    // biggest heads go first — so a sunflower takes a middle row, low and
+    // central, and the smaller flowers ring it above and below.
+    //
+    // Not smallest-to-the-front, which is what this used to do. That kept every
+    // head visible by a simple rule — a head only ever stands behind a smaller
+    // one, so it always clears it — but it put the biggest bloom in the bouquet
+    // at the very back of it, and a photograph of a hand-tie does the opposite:
+    // the statement flower sits in the middle of the face and everything else
+    // is arranged around it. What keeps the small heads visible now is that the
+    // big ones are held to the middle, so a small head in a back row has the
+    // whole of the sides to be seen in.
+    // One row at a time rather than one row at a stretch. Filling the most
+    // central row to capacity before moving on put every big bloom in the
+    // bouquet in the same row, where they had nothing to do but pile up on each
+    // other; going round the rows hands the biggest heads out across the middle
+    // of the arrangement and works outward from there.
+    const order = heartOut(levels);
+    const room = [...capacities];
     let assigned = 0;
-    for (let level = 0; level < levels; level += 1) {
-      for (let k = 0; k < capacities[level] && assigned < ranked.length; k += 1) {
+    while (assigned < ranked.length) {
+      let placed = false;
+      for (const level of order) {
+        if (assigned >= ranked.length) break;
+        if (room[level] <= 0) continue;
+        room[level] -= 1;
+        placed = true;
         const { entry } = ranked[assigned];
         assigned += 1;
         const depth = state.stems[entry.slot.stemIndex]?.depth ?? 0;
         const moved = clamp(level - depth, 0, levels - 1);
         rows[moved].push({ entry, level: moved });
+      }
+      // Every row full and stems still in hand: the capacities are a share of
+      // the count, so this cannot happen — but a loop that could spin forever
+      // is not worth the argument.
+      if (!placed) {
+        for (let i = 0; i < room.length; i += 1) room[i] = ranked.length;
       }
     }
 
@@ -783,6 +814,22 @@ function roundRobin<T>(lists: T[][]): T[] {
   }
   return out;
 }
+
+/**
+ * The rows, from the heart of the bouquet outward.
+ *
+ * The heart is not the middle row but a little forward of it: in every
+ * reference photograph the statement flowers sit low and central, with the rest
+ * of the bouquet rising behind and around them, so the row that reads as the
+ * heart of the face is the second one back at most.
+ */
+function heartOut(levels: number): number[] {
+  const heart = (levels - 1) * HEART_ROW;
+  return Array.from({ length: levels }, (_, level) => level).sort(
+    (a, b) => sortKey(Math.abs(a - heart)) - sortKey(Math.abs(b - heart)) || a - b,
+  );
+}
+const HEART_ROW = 0.38;
 
 /** 0..count-1, middle first and working outward, so a few stems spread instead of clumping left. */
 function centreOut(count: number): number[] {
@@ -1067,12 +1114,13 @@ function spriteTopPx(stem: PlacedStem): number {
 function solveFillZoom(placed: PlacedStem[], layout: Layout): number {
   let fill = ZOOM_MAX;
   for (const stem of placed) {
-    // Measured over the flowers and the filler, not the foliage. The zoom sets
-    // the scale of the whole bouquet, so anything that decides it moves every
-    // flower — and a stem of eucalyptus must not. Foliage running off the edge
-    // of the frame is what these photographs look like anyway, and its own
-    // reach is already tied to the flowers', so it grows with them.
-    if (stem.item.category === "green") continue;
+    // Measured over the FLOWERS. The zoom sets the scale of the whole bouquet,
+    // so anything that decides it moves every flower in it — and neither a stem
+    // of eucalyptus nor a sprig of gypsophila may do that. Both are allowed to
+    // run past the edge of the frame, which is what these photographs look like
+    // anyway, and both have their reach tied to the flowers' already, so they
+    // grow and shrink with them.
+    if (stem.item.category !== "focal") continue;
     const margin = FIT_SPRITE_MARGIN[stem.item.category];
     const dx = Math.abs(stem.headX - layout.tieX);
     const wide = dx + stem.widthPx * margin;
@@ -1103,6 +1151,9 @@ function solveLeanFit(placed: PlacedStem[], layout: Layout): number {
   let fit = 1;
 
   for (const stem of placed) {
+    // Foliage is held to the frame on its own, below — it must not be allowed
+    // to rein in the flowers, or a stem of eucalyptus moves every one of them.
+    if (stem.item.category === "green") continue;
     const tan = Math.tan(CATEGORY_LEVELS[stem.item.category].maxLean * DEG);
     const dx = Math.abs(stem.headX - layout.tieX);
     const above = layout.tieY - stem.headY;
@@ -1122,6 +1173,9 @@ function solveHorizontalFit(placed: PlacedStem[], layout: Layout): number {
   const limit = layout.width * FIT_HALF_WIDTH;
   let fit = 1;
   for (const stem of placed) {
+    // Foliage is held to the frame on its own, below — it must not be allowed
+    // to rein in the flowers, or a stem of eucalyptus moves every one of them.
+    if (stem.item.category === "green") continue;
     const dx = Math.abs(stem.headX - layout.tieX);
     if (dx < 1e-6) continue;
     const keep = stem.widthPx * FIT_SPRITE_MARGIN[stem.item.category];
@@ -1143,6 +1197,9 @@ function solveVerticalFit(placed: PlacedStem[], layout: Layout): number {
   const limit = layout.height * FIT_TOP_MARGIN;
   let fit = 1;
   for (const stem of placed) {
+    // Foliage is held to the frame on its own, below — it must not be allowed
+    // to rein in the flowers, or a stem of eucalyptus moves every one of them.
+    if (stem.item.category === "green") continue;
     const above = layout.tieY - stem.headY;
     if (above < 1e-6) continue;
     const allowed = layout.tieY - limit - spriteTopPx(stem) * (1 - TOP_OVERHANG);
@@ -1277,6 +1334,9 @@ function buildFrame(
   // the tie point.
   let headroom = Infinity;
   for (const entry of plan) {
+    // Foliage is allowed to run off the top, and must not be allowed to set the
+    // depth of the bouquet: anything that does moves every flower in it.
+    if (entry.category === "green") continue;
     const stem = state.stems[entry.stemIndex];
     const item = getItemOrFallback(stem.itemId);
     const rise = riseOf.get(entry) ?? 0;
@@ -1377,6 +1437,24 @@ function layoutPass(
       x: spot.x * spreadFit * zoom,
       y: Math.min(spot.floor, spot.floor + (spot.y - spot.floor) * riseFit) * zoom,
     });
+  }
+
+  // Foliage is kept on the canvas here rather than by the fits, so that adding
+  // a stem of it cannot rein the flowers in. It is allowed to run past the edge
+  // — that is what these photographs look like — but not to leave altogether.
+  for (const entry of plan) {
+    if (entry.category !== "green") continue;
+    const at = offset.get(entry);
+    if (!at) continue;
+    const stem = state.stems[entry.stemIndex];
+    const item = getItemOrFallback(stem.itemId);
+    const pose = poseFor(item, stem.variant, at.x);
+    const half = sizePx(pose.widthMm ?? item.realWidthMm, layout, (scaleOf.get(entry) ?? 1) * zoom);
+    const room = Math.max(
+      layout.ringSpacingPx,
+      layout.width * FIT_HALF_WIDTH - half * FIT_SPRITE_MARGIN.green,
+    );
+    if (Math.abs(at.x) > room) offset.set(entry, { x: Math.sign(at.x) * room, y: at.y });
   }
 
   // Now the filler, into the gaps the flowers left.
@@ -1541,11 +1619,16 @@ function placeInGaps(
     // shoulders of the flowers either side rather than only through the seam.
     // Not at an edge, though: there is nothing either side to carry over, and
     // lifting it there just floats a puff of gypsophila off the bouquet.
+    // Both the lift and the wander are scaled by how much of a gap there
+    // actually is. A seam between two flowers all but touching has no room in
+    // it, and a stem nudged the usual amount ends up on one of them rather than
+    // between the two.
+    const slack = Math.min(1, (2 * room) / Math.max(1, stepPx));
     const peek = gap.kind === "edge" ? 0 : FILLER_PEEK;
-    y -= stepPx * (peek + gap.repeat * FILLER_STACK);
+    y -= stepPx * slack * (peek + gap.repeat * FILLER_STACK);
     // And wander a little within the gap, so several stems of it do not line up.
     x += randSigned(state.seed, entry.n, "gap-x") * room * FILLER_WANDER;
-    y += randSigned(state.seed, entry.n, "gap-y") * stepPx * FILLER_WANDER;
+    y += randSigned(state.seed, entry.n, "gap-y") * stepPx * slack * FILLER_WANDER;
 
     offset.set(entry, { x, y });
     // Broken to fit: the sprig is cut back to roughly what the gap will take,

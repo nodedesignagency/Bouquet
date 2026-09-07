@@ -138,11 +138,30 @@ Because one number drives all three they cannot contradict each other. What is
 drawn in front is always what sits lower; what shows above the rest is always
 what is behind.
 
-- **Rows are ordered by head size, smallest to the front.** Not a matter of
-  taste — it is the only thing that keeps every flower visible. A head in a back
-  row shows the crescent of itself that clears the head in front, and that
-  crescent is `rowStep + radiusBack − radiusFront` tall. Put an open lily in
-  front of a rose bud and it goes to nothing.
+- **Rows are handed out from the heart of the bouquet outward, biggest first.**
+  The heart is a little forward of the middle row, because in every reference
+  photograph the statement flowers sit low and central with the rest rising
+  behind and around them. A row at a time rather than a row at a stretch, or
+  every big bloom in the bouquet lands in the same row with nothing to do but
+  pile up. This replaced smallest-to-the-front, which kept every head visible by
+  a simple rule — a head only ever stood behind a smaller one, so it always
+  cleared it — but put the biggest bloom at the very back, and a photograph of a
+  hand-tie does the opposite.
+- **A big bloom is held to the middle of the face**, a small one is free to the
+  edge, and that is a rule rather than a judgement to be weighed. Scored against
+  the others it always lost — there is some combination of a good gap and a good
+  cluster that outweighs it — and the biggest flower in the bouquet ended up
+  furthest from the centre. It is also what keeps the small heads visible now
+  that they are no longer all in front: a small head in a back row has the whole
+  of the sides to be seen in.
+- **How much of itself a head may have covered tightens as it grows.** The same
+  fraction reads very differently at different sizes: a third of a carnation is
+  twenty pixels and looks like flowers touching, a third of a lily is seventy and
+  looks like one flower eating another.
+- **"Big" is measured against the bouquet's own average, not its largest.** So a
+  bouquet of one kind of rose has no big flowers in it, every head is the average
+  one, and none of these rules fire. It is a MIXED bouquet that has a sunflower
+  in it, and they are about the sunflower.
 - **Depth scaling is subtle**: 1.06 at the front, 0.92 at the back, with a
   per-stem variation of a few percent on top and anchors a touch larger again. A
   steep falloff shrinks the back of the arrangement into a different bouquet

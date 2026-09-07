@@ -132,6 +132,51 @@ function wants(seed: number, id: number): number {
 /** How much closer a stem sits to its own group than to the rest of the bouquet. */
 const CLUSTER_TIGHTEN = 1.45;
 
+/**
+ * How big a head is, against the bouquet it is in: 0 for anything up to the
+ * average, 1 for a head most of the way again bigger than the average.
+ *
+ * Measured against the mean rather than against the biggest, so that a bouquet
+ * of one kind of rose has no big flowers in it — every head is the average one,
+ * and none of the rules below should fire. It is a MIXED bouquet that has a
+ * sunflower in it, and the sunflower is what they are about.
+ */
+function bigness(radius: number, frame: Frame): number {
+  if (frame.meanHead <= 0) return 0;
+  return clamp((radius / frame.meanHead - 1) / SIZE_SPAN, 0, 1);
+}
+const SIZE_SPAN = 0.8;
+
+/**
+ * How far out a head may sit, as a share of what its role is allowed.
+ *
+ * A big bloom belongs in the body of the bouquet and a small one is free to
+ * reach out to the edge — which is not a preference to be weighed against
+ * others but a rule about what a bouquet is. A sunflower hung off the rim looks
+ * like it fell out of one; the small heads, the buds and the filler are what
+ * carry the outline. Scored rather than enforced, it lost: there is always some
+ * combination of a good gap and a good cluster that outweighs it, and the
+ * biggest flower in the bouquet ended up furthest from the middle.
+ */
+function outerReach(stem: ComposeStem, frame: Frame): number {
+  if (stem.category !== "focal") return 1;
+  return 1 - bigness(stem.radius, frame) * (1 - BIG_REACH);
+}
+const BIG_REACH = 0.45;
+
+/**
+ * How much of itself a head may have covered, by how big it is.
+ *
+ * The same fraction reads very differently at different sizes: a third of a
+ * carnation is twenty pixels and looks like flowers touching, a third of a lily
+ * is seventy and looks like one flower eating another. So the band tightens as
+ * the head grows.
+ */
+function mayOverlap(stem: ComposeStem, frame: Frame): number {
+  return OVERLAP_MAX - bigness(stem.radius, frame) * (OVERLAP_MAX - OVERLAP_MAX_BIG);
+}
+const OVERLAP_MAX_BIG = 0.17;
+
 /** How many candidates are generated beside something already in the bouquet. */
 const BESIDE_SHARE = 0.6;
 
@@ -267,7 +312,7 @@ export function composeStems(
   const spots = new Map<number, Spot>();
 
   for (const stem of order) {
-    const want = wants(seed, stem.id);
+    const want = Math.min(wants(seed, stem.id), mayOverlap(stem, frame));
     const tried: Array<{ x: number; y: number; score: number }> = [];
     let best: Spot | null = null;
 
@@ -322,7 +367,7 @@ function sweep(
   lean: number,
   tried: Array<{ x: number; y: number; score: number }>,
 ): Spot {
-  const reach = frame.massHalf * frame.spread[stem.category];
+  const reach = frame.massHalf * frame.spread[stem.category] * outerReach(stem, frame);
   const clear = frame.massHalf * frame.clear[stem.category];
 
   let best: Spot | null = null;
@@ -397,7 +442,7 @@ function candidate(
   wanted: number,
   k: number,
 ) {
-  const reach = frame.massHalf * frame.spread[stem.category];
+  const reach = frame.massHalf * frame.spread[stem.category] * outerReach(stem, frame);
   // Measured against the FLOWERS, not against this role's own reach: "stay out
   // of the middle" means out of the middle of the bouquet, and a role that
   // reaches further would otherwise clear a proportionally bigger hole and end
@@ -444,7 +489,7 @@ function candidate(
       (wanted + randSigned(seed, stem.id, "cand-ov", k) * OVERLAP_SLACK) *
         (pick.cluster === stem.cluster ? CLUSTER_TIGHTEN : 1 / CLUSTER_TIGHTEN),
       OVERLAP_MIN * 0.5,
-      OVERLAP_MAX,
+      Math.min(mayOverlap(stem, frame), mayOverlap(pick, frame)),
     );
     const apart = stem.radius + pick.radius - overlap * 2 * Math.min(stem.radius, pick.radius);
     const rise = rowY(stem, frame, pick.x, drift) - pick.y;
@@ -491,7 +536,7 @@ function settle(
   for (let step = 0; step < RELAX_STEPS; step += 1) {
     const y = rowY(stem, frame, x, drift);
     let worst: Settled | null = null;
-    let worstOverlap = OVERLAP_MAX;
+    let worstOverlap = mayOverlap(stem, frame);
     for (const other of settled) {
       const d = Math.hypot(other.x - x, other.y - y);
       const behindMe = other.level > stem.level || (other.level === stem.level && other.y < y);
@@ -611,7 +656,7 @@ function judge(
   // The face of the bouquet is a dome, wider than it is tall. A head is meant
   // to be inside it, with the flowers well inside and the foliage allowed to
   // carry past — that is what gives a bouquet an outline rather than an edge.
-  const reach = frame.massHalf * frame.spread[stem.category];
+  const reach = frame.massHalf * frame.spread[stem.category] * outerReach(stem, frame);
   const top = frame.massTop * frame.spread[stem.category];
   const ex = reach > 0 ? at.x / reach : 0;
   const ey = top > 0 ? (at.y + stem.rise) / top : 0;
@@ -660,11 +705,15 @@ function judge(
   // Overlap, judged on the closest neighbour: some is wanted, and it is wanted
   // in a band. Below it the bouquet has daylight through it; above it one head
   // is eating another.
-  terms.overlap = band(closest.overlap, OVERLAP_MIN, wanted, OVERLAP_MAX);
-  terms.crowding = -neighbourhood.reduce(
-    (worst, n) => Math.max(worst, Math.max(0, n.hides - OVERLAP_MAX) / (OVERLAP_RUIN - OVERLAP_MAX)),
-    0,
-  );
+  const may = mayOverlap(stem, frame);
+  terms.overlap = band(closest.overlap, OVERLAP_MIN, Math.min(wanted, may), may);
+  terms.crowding = -neighbourhood.reduce((worst, n) => {
+    // Judged on whichever of the two has more to lose, so a rose is not free to
+    // eat a third of a lily just because a third of a rose would be fine.
+    const allowed = Math.min(may, mayOverlap({ ...stem, radius: n.other.radius }, frame));
+    const ruin = allowed + (OVERLAP_RUIN - OVERLAP_MAX);
+    return Math.max(worst, Math.max(0, n.hides - allowed) / Math.max(0.02, ruin - allowed));
+  }, 0);
 
   // Clustering: two or three heads of its own group within touching distance
   // reads as a bunch. Counted over the group rather than over whatever happens

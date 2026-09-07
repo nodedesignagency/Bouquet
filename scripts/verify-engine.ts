@@ -525,7 +525,12 @@ function buriedFraction(stem: PlacedStem, layer: PlacedStem[]): number {
           );
     const inner = focals.filter((s) => Math.abs(s.headX - l.tieX) < reach * 0.5);
     const outer = focals.filter((s) => Math.abs(s.headX - l.tieX) >= reach * 0.5);
-    if (inner.length > 1 && outer.length > 1 && crowd(inner) <= crowd(outer)) {
+    // Not sparser than the rim, rather than strictly denser. The measure counts
+    // neighbours within touching distance, and touching distance is smaller for
+    // the small heads that ring the outside — so a rim of tightly clustered
+    // carnations reads as crowded as a heart of well-spaced lilies, and a tie
+    // is not a bouquet with a hole in it.
+    if (inner.length > 1 && outer.length > 1 && crowd(inner) < crowd(outer) - 0.05) {
       denserOut = `${name}: heart ${crowd(inner).toFixed(1)} neighbours, rim ${crowd(outer).toFixed(1)}`;
     }
 
@@ -721,14 +726,35 @@ check(
         )}px from the nearest bloom, and the flowers stand at most ${apartest.toFixed(0)}px apart`;
       }
       if (gap.kind === "edge") continue;
+      // Against the pair the gap was actually NAMED from, not the two nearest
+      // blooms — which can be a tight couple somewhere else entirely, and then
+      // the test says a stem is not between two flowers it was never put
+      // between.
+      const row = focals
+        .filter((s) => s.level === gap.level)
+        .sort((x, y) => x.headX - y.headX);
+      const seat = row[Math.min(gap.slot, row.length - 1)];
+      if (!seat) continue;
+      let mate: PlacedStem | undefined;
+      if (gap.kind === "row") mate = row[Math.min(gap.slot + 1, row.length - 1)];
+      else {
+        const behind = focals.filter((s) => s.level === gap.level + 1);
+        mate = behind.length
+          ? behind.reduce((best, c) =>
+              Math.abs(c.headX - seat.headX) < Math.abs(best.headX - seat.headX) ? c : best,
+            )
+          : undefined;
+      }
+      if (!mate || mate === seat) continue;
       between += 1;
-      // And in a seam or a triangle, actually between the two: closer to each
-      // of them than they are to each other.
-      const apart = Math.hypot(near[0].f.headX - near[1].f.headX, near[0].f.headY - near[1].f.headY);
-      if (near[0].d >= apart || near[1].d >= apart) {
-        notBetween = `${name}: ${gap.kind} gap sits ${near[0].d.toFixed(0)}/${near[1].d.toFixed(
+      // Between the two means closer to each of them than they are to each other.
+      const apart = Math.hypot(seat.headX - mate.headX, seat.headY - mate.headY);
+      const toSeat = Math.hypot(seat.headX - filler.headX, seat.headY - filler.headY);
+      const toMate = Math.hypot(mate.headX - filler.headX, mate.headY - filler.headY);
+      if (toSeat >= apart || toMate >= apart) {
+        notBetween = `${name}: ${gap.kind} gap sits ${toSeat.toFixed(0)}/${toMate.toFixed(
           0,
-        )}px from two blooms that are ${apart.toFixed(0)}px apart`;
+        )}px from the two blooms it was put between, which are ${apart.toFixed(0)}px apart`;
       }
     }
   }
@@ -819,9 +845,14 @@ check(
   }
   check("bringing a stem forward moves it forward, down and closer", broken === "" && moved > 0, broken);
 
-  const sent = nudgeDepth(a, 0, -1);
-  const first = lay(a).placed.find((s) => s.stemIndex === 0)!;
-  const pushed = lay(sent).placed.find((s) => s.stemIndex === 0)!;
+  // A stem that is not already in the back row, since one that is cannot go
+  // any further back.
+  const front = [...lay(a).placed]
+    .filter((s) => s.item.category === "focal" && s.level < s.levels - 1)
+    .sort((x, y) => x.level - y.level || x.n - y.n)[0];
+  const sent = nudgeDepth(a, front.stemIndex, -1);
+  const first = lay(a).placed.find((s) => s.stemIndex === front.stemIndex)!;
+  const pushed = lay(sent).placed.find((s) => s.stemIndex === front.stemIndex)!;
   check(
     "sending a stem back moves it back and up",
     pushed.level > first.level && pushed.headY < first.headY,
